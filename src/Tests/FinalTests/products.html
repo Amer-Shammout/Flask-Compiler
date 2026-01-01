@@ -2,16 +2,23 @@
 
 {% block content %}
 <div class="grid">
+
+    {% if products %}
     {% for product in products %}
     <div class="card">
+
         <h3>{{ product.name }}</h3>
 
         <p>
-            {{ product.description | truncate(120) }}
+            {{ product.description | truncate(120, True, '...') }}
         </p>
 
         <p class="price">
+            {% if product.price%}
             ${{ "%.2f"|format(product.price) }}
+            {% else %}
+            Price not available
+            {% endif %}
         </p>
 
         {% if product.in_stock %}
@@ -22,18 +29,26 @@
 
         {% if product.category %}
         <p>
-            Category: <strong>{{ product.category }}</strong>
+            Category:
+            <strong>
+                {{ product.category }}
+            </strong>
         </p>
         {% endif %}
 
-        <a href="/products/{{ product.id }}">
-            <button class="btn-primary">View Details</button>
+        <a href="{{ url_for('product_details', product_id=product.id) }}"
+           class="btn-primary">
+            View Details
         </a>
+
     </div>
+    {% endfor %}
+
     {% else %}
     <div class="card">
         <p>No products available.</p>
     </div>
-    {% endfor %}
+    {% endif %}
+
 </div>
 {% endblock %}

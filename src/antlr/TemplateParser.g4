@@ -283,6 +283,7 @@ jinja_statement
     | jinja_for_block                              # JinjaForStatement
     | jinja_include_statement                      # JinjaIncludeStatement
     | jinja_block_statement                        # JinjaBlockStatement
+    | jinja_extends_statement                      # JinjaExtendsStatement
     ;
 
 // Stmt start
@@ -373,6 +374,10 @@ jinja_block_close
                                                    # JinjaBlockClose
     ;
 
+jinja_extends_statement
+    : jinja_stmt_start JINJA_EXTENDS JINJA_STMT_STRING JINJA_STMT_END
+                                                   # JinjaExtends
+    ;
 // Statement expr
 jinja_stmt_expr
     : jinja_stmt_term (jinja_stmt_op jinja_stmt_term)*
