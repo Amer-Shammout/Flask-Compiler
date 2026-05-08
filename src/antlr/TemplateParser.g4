@@ -1,9 +1,9 @@
 parser grammar TemplateParser;
 
-//@header {
-//    // Parser package
-//    package antlr;
-//}
+@header {
+    // Parser package
+    package antlr;
+}
 
 options {
     // Lexer tokens

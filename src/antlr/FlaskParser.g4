@@ -1,8 +1,8 @@
 parser grammar FlaskParser;
 
-//@header {
-//package antlr;
-//}
+@header {
+package antlr;
+}
 
 options {
     tokenVocab = FlaskLexer;

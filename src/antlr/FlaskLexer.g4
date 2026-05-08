@@ -1,8 +1,8 @@
 lexer grammar FlaskLexer;
 
-//@header {
-//package antlr;
-//}
+@header {
+package antlr;
+}
 
 tokens { INDENT, DEDENT }
 

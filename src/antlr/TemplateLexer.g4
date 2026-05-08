@@ -1,6 +1,6 @@
 lexer grammar TemplateLexer;
 
-//@header { package antlr; }
+@header { package antlr; }
 
 @members {
     boolean isTagName = false;
@@ -29,9 +29,6 @@ lexer grammar TemplateLexer;
                 getCharPositionInLine()
             );
         }
-
-
-
 }
 
 
@@ -130,8 +127,63 @@ HTML_SLASH
 
 // tag name
 HTML_TAG_NAME
-    : {isTagName}? [a-zA-Z][a-zA-Z0-9\-]* {
+    : {isTagName}? (
+          'html'
+        | 'head'
+        | 'title'
+        | 'meta'
+        | 'link'
+        | 'style'
+        | 'script'
+        | 'body'
+        | 'header'
+        | 'main'
+        | 'footer'
+        | 'section'
+        | 'article'
+        | 'nav'
+        | 'aside'
+        | 'div'
+        | 'span'
+        | 'p'
+        | 'h1'
+        | 'h2'
+        | 'h3'
+        | 'h4'
+        | 'h5'
+        | 'h6'
+        | 'a'
+        | 'img'
+        | 'video'
+        | 'audio'
+        | 'form'
+        | 'input'
+        | 'button'
+        | 'label'
+        | 'textarea'
+        | 'select'
+        | 'option'
+        | 'table'
+        | 'thead'
+        | 'tbody'
+        | 'tr'
+        | 'td'
+        | 'th'
+        | 'ul'
+        | 'ol'
+        | 'li'
+        | 'br'
+        | 'hr'
+        | 'canvas'
+        | 'svg'
+        | 'iframe'
+
+        // fallback
+        | [a-zA-Z][a-zA-Z0-9\\-]*
+      )
+      {
           isTagName = false;
+
           if (getText().equalsIgnoreCase("style")) {
               insideStyle = true;
           }
@@ -338,12 +390,64 @@ CSS_RBRACE : '}' -> popMode ;
 
 // property name
 CSS_PROPERTY
-    : [a-zA-Z-]+ ':' {
+    : (
+          'color'
+        | 'background'
+        | 'background-color'
+        | 'width'
+        | 'height'
+        | 'margin'
+        | 'margin-top'
+        | 'margin-right'
+        | 'margin-bottom'
+        | 'margin-left'
+        | 'padding'
+        | 'padding-top'
+        | 'padding-right'
+        | 'padding-bottom'
+        | 'padding-left'
+        | 'display'
+        | 'position'
+        | 'top'
+        | 'right'
+        | 'bottom'
+        | 'left'
+        | 'font-size'
+        | 'font-family'
+        | 'font-weight'
+        | 'line-height'
+        | 'text-align'
+        | 'text-decoration'
+        | 'border'
+        | 'border-radius'
+        | 'border-color'
+        | 'border-width'
+        | 'flex'
+        | 'flex-direction'
+        | 'justify-content'
+        | 'align-items'
+        | 'grid-template-columns'
+        | 'grid-template-rows'
+        | 'gap'
+        | 'overflow'
+        | 'opacity'
+        | 'visibility'
+        | 'z-index'
+        | 'cursor'
+        | 'transition'
+        | 'transform'
+        | 'animation'
+
+        // fallback
+        | [a-zA-Z-]+
+      )
+      ':'
+      {
          String text = getText();
          setText(text.substring(0, text.length() - 1));
          setType(CSS_PROPERTY);
          pendingTokens.add(commonToken(CSS_COLON_IN_BLOCK, ":"));
-     }
+      }
     ;
 
 
