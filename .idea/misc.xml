@@ -6,7 +6,7 @@
         <PerGrammarGenerationSettings>
           <option name="fileName" value="$PROJECT_DIR$/src/antlr/FlaskParser.g4" />
           <option name="autoGen" value="true" />
-          <option name="outputDir" value="C:\Users\ASUS\Desktop\CompilerProject\gen" />
+          <option name="outputDir" value="C:\Users\ASUSD\IdeaProjects\Jinja2-Compiler\gen" />
           <option name="libDir" value="" />
           <option name="encoding" value="" />
           <option name="pkg" value="" />
@@ -16,7 +16,7 @@
         <PerGrammarGenerationSettings>
           <option name="fileName" value="$PROJECT_DIR$/src/antlr/TemplateParser.g4" />
           <option name="autoGen" value="true" />
-          <option name="outputDir" value="C:\Users\ASUS\Desktop\CompilerProject\gen" />
+          <option name="outputDir" value="C:\Users\ASUSD\IdeaProjects\Jinja2-Compiler\gen" />
           <option name="libDir" value="" />
           <option name="encoding" value="" />
           <option name="pkg" value="" />
@@ -26,7 +26,7 @@
         <PerGrammarGenerationSettings>
           <option name="fileName" value="$PROJECT_DIR$/src/antlr/TemplateLexer.g4" />
           <option name="autoGen" value="true" />
-          <option name="outputDir" value="C:\Users\ASUS\Desktop\CompilerProject\gen" />
+          <option name="outputDir" value="C:\Users\ASUSD\IdeaProjects\Jinja2-Compiler\gen" />
           <option name="libDir" value="" />
           <option name="encoding" value="" />
           <option name="pkg" value="" />
@@ -36,7 +36,7 @@
         <PerGrammarGenerationSettings>
           <option name="fileName" value="$PROJECT_DIR$/src/antlr/FlaskLexer.g4" />
           <option name="autoGen" value="true" />
-          <option name="outputDir" value="C:\Users\ASUS\Desktop\CompilerProject\gen" />
+          <option name="outputDir" value="C:\Users\ASUSD\IdeaProjects\Jinja2-Compiler\gen" />
           <option name="libDir" value="" />
           <option name="encoding" value="" />
           <option name="pkg" value="" />
@@ -46,7 +46,7 @@
       </list>
     </option>
   </component>
-  <component name="ProjectRootManager" version="2" languageLevel="JDK_20" default="true">
+  <component name="ProjectRootManager" version="2" languageLevel="JDK_17" project-jdk-name="25" project-jdk-type="JavaSDK">
     <output url="file://$PROJECT_DIR$/out" />
   </component>
 </project>

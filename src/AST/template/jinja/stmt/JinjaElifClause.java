@@ -7,7 +7,7 @@ import AST.template.jinja.expr.JinjaExpr;
 
 import java.util.List;
 
-public class JinjaElifClause extends JinjaNode {
+public class JinjaElifClause extends JinjaStmt {
 
     private final JinjaExpr condition;
     private final JinjaBody body;

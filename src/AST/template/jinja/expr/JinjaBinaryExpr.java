@@ -2,7 +2,9 @@ package AST.template.jinja.expr;
 
 import AST.ASTNode;
 
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 public class JinjaBinaryExpr extends JinjaExpr {
 
@@ -38,4 +40,13 @@ public class JinjaBinaryExpr extends JinjaExpr {
     public String toString() {
         return "JinjaBinary \"" + op + "\" (line " + lineNumber + ")";
     }
+
+    @Override
+    public Set<String> getVariables() {
+        Set<String> vars = new java.util.HashSet<>();
+        vars.addAll(left.getVariables());
+        vars.addAll(right.getVariables());
+        return vars;
+    }
+
 }

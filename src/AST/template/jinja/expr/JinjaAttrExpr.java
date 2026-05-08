@@ -3,10 +3,13 @@ package AST.template.jinja.expr;
 import AST.ASTNode;
 
 import java.util.List;
+import java.util.Set;
 
 public class JinjaAttrExpr extends JinjaExpr {
 
     private final JinjaExpr target;
+
+
     private final String attribute;
 
     public JinjaAttrExpr(JinjaExpr target, String attribute, int lineNumber) {
@@ -19,6 +22,11 @@ public class JinjaAttrExpr extends JinjaExpr {
     public List<ASTNode> getChildren() {
         return List.of(target);
     }
+    @Override
+    public Set<String> getVariables() {
+        return target.getVariables();
+    }
+
 
     @Override
     public String toString() {

@@ -5,12 +5,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-/**
- * Scope يمثل أي نطاق في البرنامج:
- * - global
- * - function
- * - block / loop / if / while
- */
+
 public class Scope {
 
     private final String name;

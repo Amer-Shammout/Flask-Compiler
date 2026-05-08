@@ -1,5 +1,8 @@
 package AST.template.jinja.expr;
 
+import java.util.HashSet;
+import java.util.Set;
+
 public class JinjaIdentifierExpr extends JinjaExpr {
 
     private final String name;
@@ -11,6 +14,10 @@ public class JinjaIdentifierExpr extends JinjaExpr {
 
     public String getName() {
         return name;
+    }
+    @Override
+    public Set<String> getVariables() {
+        return Set.of(name);
     }
 
     @Override

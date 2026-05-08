@@ -1,5 +1,7 @@
 package AST.template.jinja.expr;
 
+import java.util.Set;
+
 public class JinjaNumberLiteralExpr extends JinjaExpr {
 
     private final String text;
@@ -17,4 +19,9 @@ public class JinjaNumberLiteralExpr extends JinjaExpr {
     public String toString() {
         return "JinjaNumber " + text + " (line " + lineNumber + ")";
     }
+    @Override
+    public Set<String> getVariables() {
+        return Set.of();
+    }
+
 }

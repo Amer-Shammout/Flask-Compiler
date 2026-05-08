@@ -3,6 +3,7 @@ package AST.template.jinja.expr;
 import AST.ASTNode;
 
 import java.util.List;
+import java.util.Set;
 
 public class JinjaUnaryExpr extends JinjaExpr {
 
@@ -32,4 +33,10 @@ public class JinjaUnaryExpr extends JinjaExpr {
     public String toString() {
         return "JinjaUnary \"" + op + "\" (line " + lineNumber + ")";
     }
+    @Override
+    public Set<String> getVariables() {
+        return expr.getVariables();
+    }
+
+
 }
