@@ -18,4 +18,9 @@ public class ReturnStmt extends Statement {
     public List<ASTNode> getChildren() {
         return List.of(value);
     }
+    @Override
+    public String toString() {
+        return "ReturnStmt (line " + lineNumber + ")";
+    }
+
 }

@@ -38,14 +38,9 @@ public class BinaryExpr extends Expression {
         return children;
     }
 
-
-
     @Override
     public String toString() {
-        return "BinaryExpr{" +
-                "left=" + left +
-                ", operator='" + operator + '\'' +
-                ", right=" + right +
-                '}';
+        return "BinaryExpr{operator='" + operator + "'} (line " + lineNumber + ")";
     }
+
 }

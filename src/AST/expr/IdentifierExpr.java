@@ -9,4 +9,9 @@ public class IdentifierExpr extends Expression {
     }
 
     public String getName() { return name; }
+    @Override
+    public String toString() {
+        return "IdentifierExpr(\"" + name + "\") (line " + lineNumber + ")";
+    }
+
 }

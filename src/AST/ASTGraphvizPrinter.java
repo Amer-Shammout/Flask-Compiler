@@ -1,7 +1,5 @@
 package AST;
 
-import AST.ASTNode;
-
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.IdentityHashMap;
@@ -19,6 +17,10 @@ public class ASTGraphvizPrinter {
 
     public static void print(ASTNode root, String fileName) throws IOException {
 
+        // Reset counters between prints
+        nodeCounter = 0;
+        ids.clear();
+
         try (FileWriter writer = new FileWriter(fileName)) {
 
             writer.write("digraph AST {\n");
@@ -35,10 +37,12 @@ public class ASTGraphvizPrinter {
         if (node == null) return;
 
         String id = getId(node);
+
+        // USE node.toString() INSTEAD OF getClass().getSimpleName()
         writer.write(String.format(
                 "  %s [label=\"%s\"];\n",
                 id,
-                node.getClass().getSimpleName()
+                escape(node.toString())
         ));
 
         List<ASTNode> children = node.getChildren();
@@ -50,5 +54,10 @@ public class ASTGraphvizPrinter {
             writer.write(String.format("  %s -> %s;\n", id, childId));
             traverse(child, writer);
         }
+    }
+
+    // Escape quotes inside labels so DOT doesn't break
+    private static String escape(String text) {
+        return text.replace("\"", "\\\"");
     }
 }

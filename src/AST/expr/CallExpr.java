@@ -26,4 +26,9 @@ public class CallExpr extends Expression {
         ch.addAll(arguments);
         return ch;
     }
+    @Override
+    public String toString() {
+        return "CallExpr (line " + lineNumber + ")";
+    }
+
 }

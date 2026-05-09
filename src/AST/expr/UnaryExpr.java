@@ -28,12 +28,9 @@ public class UnaryExpr extends Expression {
         return List.of(expression);
     }
 
-
     @Override
     public String toString() {
-        return "UnaryExpr{" +
-                "operator='" + operator + '\'' +
-                ", expression=" + expression +
-                '}';
+        return "UnaryExpr(operator='" + operator + "') (line " + lineNumber + ")";
     }
+
 }

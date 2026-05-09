@@ -17,9 +17,11 @@ public class IndexExpr extends Expression {
     public List<ASTNode> getChildren() {
         return List.of(base, index);
     }
+    @Override
+    public String toString() {
+        return "IndexExpr (line " + lineNumber + ")";
+    }
 
-    public Expression getBase() { return base; }
-    public Expression getIndex() { return index; }
 }
 
 

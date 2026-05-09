@@ -58,15 +58,15 @@ normal_element
     : open_tag html_content close_tag              # NormalElement
     ;
 
-// <tag />
+// <tag /> // hay ana ghalia ghayyarta
 self_closing_element
-    : HTML_OPEN_TAG HTML_TAG_NAME attribute* HTML_SLASH_CLOSE
+    : HTML_OPEN_TAG (HTML_TAG_NAME | HTML_VOID_TAG) attribute* HTML_SLASH_CLOSE
                                                    # SelfClosingElement
     ;
 
-// <tag>
+// <tag> // hay ana ghalia ghayyarta
 void_element
-    : HTML_OPEN_TAG HTML_TAG_NAME attribute* HTML_CLOSE_TAG
+     : HTML_OPEN_TAG (HTML_TAG_NAME | HTML_VOID_TAG) attribute* HTML_CLOSE_TAG
                                                    # VoidElement
     ;
 
@@ -378,6 +378,7 @@ jinja_extends_statement
     : jinja_stmt_start JINJA_EXTENDS JINJA_STMT_STRING JINJA_STMT_END
                                                    # JinjaExtends
     ;
+
 // Statement expr
 jinja_stmt_expr
     : jinja_stmt_term (jinja_stmt_op jinja_stmt_term)*

@@ -18,4 +18,9 @@ public class SetLiteralExpr extends Expression {
     public List<ASTNode> getChildren() {
         return List.copyOf(elements);
     }
+    @Override
+    public String toString() {
+        return "SetLiteralExpr(size=" + elements.size() + ") (line " + lineNumber + ")";
+    }
+
 }

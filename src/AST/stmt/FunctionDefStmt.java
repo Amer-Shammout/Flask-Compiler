@@ -31,4 +31,10 @@ public class FunctionDefStmt extends Statement {
         return List.of(body);
     }
 
+    @Override
+    public String toString() {
+        return "FunctionDefStmt(" + name + ") (line " + lineNumber + ")";
+    }
+
+
 }

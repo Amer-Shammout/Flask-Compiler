@@ -22,4 +22,9 @@ public class AssignmentStmt extends Statement {
     public List<ASTNode> getChildren() {
         return List.of(target, value);
     }
+    @Override
+    public String toString() {
+        return "AssignmentStmt (line " + lineNumber + ")";
+    }
+
 }

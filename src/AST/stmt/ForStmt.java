@@ -28,10 +28,7 @@ public class ForStmt extends Statement {
 
     @Override
     public String toString() {
-        return "ForStmt{" +
-                "iterator=" + iterator +
-                ", iterable=" + iterable +
-                ", body=" + body +
-                '}';
+        return "ForStmt (line " + lineNumber + ")";
     }
+
 }

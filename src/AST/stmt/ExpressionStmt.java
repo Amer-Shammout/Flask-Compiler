@@ -18,4 +18,10 @@ public class ExpressionStmt extends Statement {
     public List<ASTNode> getChildren() {
         return List.of(expression);
     }
+
+    @Override
+    public String toString() {
+        return "ExpressionStmt (line " + lineNumber + ")";
+    }
+
 }

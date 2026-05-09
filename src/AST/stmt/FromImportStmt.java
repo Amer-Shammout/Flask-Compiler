@@ -12,5 +12,11 @@ public class FromImportStmt extends Statement {
         this.module = module;
         this.names = names;
     }
+
+    @Override
+    public String toString() {
+        return "FromImportStmt (line " + lineNumber + ")";
+    }
+
 }
 

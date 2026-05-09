@@ -17,9 +17,11 @@ public class AttributeExpr extends Expression {
     public List<ASTNode> getChildren() {
         return List.of(base);
     }
+    @Override
+    public String toString() {
+        return "AttributeExpr(." + attribute + ") (line " + lineNumber + ")";
+    }
 
-    public Expression getBase() { return base; }
-    public String getAttribute() { return attribute; }
 }
 
 

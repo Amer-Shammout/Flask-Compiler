@@ -23,4 +23,10 @@ public class DecoratedStmt extends Statement {
         list.add(target);
         return list;
     }
+
+    @Override
+    public String toString() {
+        return "DecoratedStmt (line " + lineNumber + ")";
+    }
+
 }

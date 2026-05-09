@@ -44,7 +44,7 @@ def add_product():
     return render_template("add_product.html")
 
 # -----------------------
-# Create Product (simplified)
+# Create Product
 # -----------------------
 @app.route("/products/create")
 def create_product():

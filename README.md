@@ -139,7 +139,7 @@ This is extremely useful for:
 
 ---
 
-## 📦 Symbol Table (Not Finished Yet)
+## 📦 Symbol Table 
 
 A **Symbol Table** was added to support:
 - Variable declarations
@@ -148,8 +148,8 @@ A **Symbol Table** was added to support:
 - Semantic analysis
 
 It will be integrated after AST construction for both:
-- Flask code (Under Tests)
-- Template code (Planned)
+- Flask code 
+- Template code 
 
 ---
 

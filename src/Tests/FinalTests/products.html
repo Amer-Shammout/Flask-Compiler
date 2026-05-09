@@ -14,7 +14,7 @@
         </p>
 
         <p class="price">
-            {% if product.price%}
+            {% if product.price %}
             ${{ "%.2f"|format(product.price) }}
             {% else %}
             Price not available

@@ -17,4 +17,9 @@ public class Decorator extends ASTNode {
     public List<ASTNode> getChildren() {
         return List.of(expr);
     }
+    @Override
+    public String toString() {
+        return "Decorator (line " + lineNumber + ")";
+    }
+
 }

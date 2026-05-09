@@ -23,4 +23,10 @@ public class WhileStmt extends Statement {
         return List.of(condition, body);
     }
 
+    @Override
+    public String toString() {
+        return "WhileStmt (line " + lineNumber + ")";
+    }
+
+
 }

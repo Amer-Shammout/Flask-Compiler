@@ -17,4 +17,9 @@ public class NotExpr extends Expression {
     public List<ASTNode> getChildren() {
         return List.of(expr);
     }
+    @Override
+    public String toString() {
+        return "NotExpr (line " + lineNumber + ")";
+    }
+
 }

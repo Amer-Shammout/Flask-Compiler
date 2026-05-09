@@ -8,5 +8,9 @@ public class NumberLiteralExpr extends LiteralExpr {
         super("NumberLiteralExpr", lineNumber);
         this.value = value;
     }
+    @Override
+    public String toString() {
+        return "NumberLiteralExpr(" + value + ") (line " + lineNumber + ")";
+    }
 
 }

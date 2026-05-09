@@ -47,4 +47,10 @@ public class IfStmt extends Statement {
 
         return children;
     }
+
+    @Override
+    public String toString() {
+        return "IfStmt (line " + lineNumber + ")";
+    }
+
 }

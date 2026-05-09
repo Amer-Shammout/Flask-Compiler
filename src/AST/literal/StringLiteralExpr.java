@@ -8,4 +8,9 @@ public class StringLiteralExpr extends LiteralExpr {
         super("StringLiteralExpr", lineNumber);
         this.value = value;
     }
+    @Override
+    public String toString() {
+        return "StringLiteralExpr(\"" + value + "\") (line " + lineNumber + ")";
+    }
+
 }

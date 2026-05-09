@@ -18,4 +18,9 @@ public class LambdaExpr extends Expression {
     public List<ASTNode> getChildren() {
         return List.of(body);
     }
+    @Override
+    public String toString() {
+        return "LambdaExpr(params=" + params + ") (line " + lineNumber + ")";
+    }
+
 }

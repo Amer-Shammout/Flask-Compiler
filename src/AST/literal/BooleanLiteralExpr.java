@@ -8,4 +8,9 @@ public class BooleanLiteralExpr extends LiteralExpr {
         super("BooleanLiteralExpr", lineNumber);
         this.value = value;
     }
+    @Override
+    public String toString() {
+        return "BooleanLiteralExpr(" + value + ") (line " + lineNumber + ")";
+    }
+
 }

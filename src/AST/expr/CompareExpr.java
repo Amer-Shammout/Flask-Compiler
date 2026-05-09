@@ -43,13 +43,9 @@ public class CompareExpr extends Expression {
         return kids;
     }
 
-
     @Override
     public String toString() {
-        return "CompareExpr{" +
-                "left=" + left +
-                ", operators=" + operators +
-                ", rights=" + rights +
-                '}';
+        return "CompareExpr{operators=" + operators + "} (line " + lineNumber + ")";
     }
+
 }

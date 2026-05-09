@@ -26,4 +26,9 @@ public class AssignmentChainStmt extends Statement {
         children.add(value);
         return children;
     }
+    @Override
+    public String toString() {
+        return "AssignmentChainStmt (line " + lineNumber + ")";
+    }
+
 }
