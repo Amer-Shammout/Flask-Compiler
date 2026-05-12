@@ -7,6 +7,8 @@ import java.util.List;
 
 public class CssRule extends CssNode {
 
+    // TODO(Ghalia): Add SourceRange to constructor and store it via ASTNode.
+
     private final CssSelector selector;
     private final List<CssNode> blockContents;
 
@@ -14,6 +16,15 @@ public class CssRule extends CssNode {
         super("CssRule", lineNumber);
         this.selector = selector;
         this.blockContents = blockContents;
+    }
+
+    // TODO(Ghalia): Ensure every AST node exposes getters for its fields.
+    public CssSelector getSelector() {
+        return selector;
+    }
+
+    public List<CssNode> getBlockContents() {
+        return blockContents;
     }
 
     @Override
@@ -24,6 +35,7 @@ public class CssRule extends CssNode {
         return list;
     }
 
+    // TODO(Ghalia): Modify toString for all AST nodes.
     @Override
     public String toString() {
         return "CssRule (line " + lineNumber + ")";

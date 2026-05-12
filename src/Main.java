@@ -3,7 +3,6 @@ import AST.ASTNode;
 import AST.Program;
 import AST.template.TemplateVisitor;
 import AST.visitor.ProgramVisitor;
-import SymbolTable.FlaskSymbolTable;
 import antlr.FlaskLexer;
 import antlr.FlaskParser;
 import antlr.TemplateLexer;
@@ -11,8 +10,7 @@ import antlr.TemplateParser;
 import org.antlr.v4.runtime.*;
 import java.nio.file.*;
 import AST.template.TemplateVisitor;
-import SymbolTable.JinjaASTVisitor;
-import SymbolTable.TemplateSymbolTable;
+
 
 public class Main {
     public static void main(String[] args) throws Exception {
@@ -48,10 +46,10 @@ public class Main {
         ASTGraphvizPrinter.print(root, "ast.dot");
 
 
-        TemplateSymbolTable templateSymbolTable = new TemplateSymbolTable();
-        JinjaASTVisitor stVisitor = new JinjaASTVisitor(templateSymbolTable);
-        stVisitor.visit(root);
-        templateSymbolTable.print();
+        // TemplateSymbolTable templateSymbolTable = new TemplateSymbolTable();
+        // JinjaASTVisitor stVisitor = new JinjaASTVisitor(templateSymbolTable);
+        // stVisitor.visit(root);
+        // templateSymbolTable.print();
 
 
     }

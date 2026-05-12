@@ -9,6 +9,8 @@ import java.util.List;
 
 public class JinjaForStmt extends JinjaStmt {
 
+    // TODO(Ghalia): Add SourceRange to constructor and store it via ASTNode.
+
     private final List<String> variables;
     private final JinjaExpr iterable;
     private final JinjaBody body;
@@ -23,6 +25,7 @@ public class JinjaForStmt extends JinjaStmt {
         this.body = body;
     }
 
+    // TODO(Ghalia): Ensure every AST node exposes getters for its fields.
     public List<String> getVariables() {
         return variables;
     }
@@ -43,6 +46,7 @@ public class JinjaForStmt extends JinjaStmt {
         return list;
     }
 
+    // TODO(Ghalia): Modify toString for all AST nodes.
     @Override
     public String toString() {
         return "JinjaForStmt (line " + lineNumber + ")";

@@ -3,6 +3,7 @@ package AST;
 import java.util.List;
 
 public abstract class ASTNode {
+    // TODO(George): Replace line-only tracking with SourceRange (start/end) and add getters.
     protected String nodeName;
     protected int lineNumber;
 
@@ -24,6 +25,7 @@ public abstract class ASTNode {
         return List.of();
     }
 
+    // TODO(George OR 3): Modify toString for AST node.
     @Override
     public String toString() {
         return nodeName + " (line " + lineNumber + ")";

@@ -7,6 +7,8 @@ import java.util.List;
 
 public class Program extends ASTNode {
 
+    // TODO(George): Add SourceRange to Program constructor and store it via ASTNode.
+
     private List<Statement> statements;
 
     public Program(List<Statement> statements, int lineNumber) {

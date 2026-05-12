@@ -9,6 +9,8 @@ import java.util.List;
 
 public class JinjaIfStmt extends JinjaStmt {
 
+    // TODO(Ghalia): Add SourceRange to constructor and store it via ASTNode.
+
     private final JinjaExpr condition;
     private final JinjaBody thenBody;
     private final List<JinjaElifClause> elifClauses;
@@ -26,6 +28,7 @@ public class JinjaIfStmt extends JinjaStmt {
         this.elseBody = elseBody;
     }
 
+    // TODO(Ghalia): Ensure every AST node exposes getters for its fields.
     public JinjaExpr getCondition() {
         return condition;
     }
@@ -52,6 +55,7 @@ public class JinjaIfStmt extends JinjaStmt {
         return list;
     }
 
+    // TODO(Ghalia): Modify toString for all AST nodes.
     @Override
     public String toString() {
         return "JinjaIfStmt (line " + lineNumber + ")";

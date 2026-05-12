@@ -7,6 +7,8 @@ import java.util.List;
 
 public class JinjaBody extends JinjaNode {
 
+    // TODO(Ghalia): Add SourceRange to constructor and store it via ASTNode.
+
     private final List<ASTNode> children;
 
     public JinjaBody(List<ASTNode> children, int lineNumber) {
@@ -14,6 +16,7 @@ public class JinjaBody extends JinjaNode {
         this.children = children;
     }
 
+    // TODO(Ghalia): Ensure every AST node exposes getters for its fields.
     public List<ASTNode> getBodyChildren() {
         return children;
     }
@@ -23,6 +26,7 @@ public class JinjaBody extends JinjaNode {
         return new ArrayList<>(children);
     }
 
+    // TODO(Ghalia): Modify toString for all AST nodes.
     @Override
     public String toString() {
         return "JinjaBody (line " + lineNumber + ")";

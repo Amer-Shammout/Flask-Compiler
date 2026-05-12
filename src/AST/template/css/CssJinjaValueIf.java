@@ -8,6 +8,8 @@ import java.util.List;
 
 public class CssJinjaValueIf extends CssValuePart {
 
+    // TODO(Ghalia): Add SourceRange to constructor and store it via ASTNode.
+
     private final JinjaExpr condition;
     private final CssValue thenValue;
     private final CssValue elseValue; // can be null
@@ -22,6 +24,19 @@ public class CssJinjaValueIf extends CssValuePart {
         this.elseValue = elseValue;
     }
 
+    // TODO(Ghalia): Ensure every AST node exposes getters for its fields.
+    public JinjaExpr getCondition() {
+        return condition;
+    }
+
+    public CssValue getThenValue() {
+        return thenValue;
+    }
+
+    public CssValue getElseValue() {
+        return elseValue;
+    }
+
     @Override
     public List<ASTNode> getChildren() {
         List<ASTNode> children = new ArrayList<>();
@@ -33,6 +48,7 @@ public class CssJinjaValueIf extends CssValuePart {
         return children;
     }
 
+    // TODO(Ghalia): Modify toString for all AST nodes.
     @Override
     public String toString() {
         return "CssJinjaValueIf (line " + lineNumber + ")";

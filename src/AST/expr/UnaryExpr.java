@@ -6,6 +6,8 @@ import java.util.List;
 
 public class UnaryExpr extends Expression {
 
+    // TODO(George): Add SourceRange to constructor and store it via ASTNode.
+
     private String operator;
     private Expression expression;
 
@@ -28,6 +30,7 @@ public class UnaryExpr extends Expression {
         return List.of(expression);
     }
 
+    // TODO(George): Modify toString for all AST nodes.
     @Override
     public String toString() {
         return "UnaryExpr(operator='" + operator + "') (line " + lineNumber + ")";

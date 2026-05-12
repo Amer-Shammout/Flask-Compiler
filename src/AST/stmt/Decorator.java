@@ -8,15 +8,23 @@ public class Decorator extends ASTNode {
 
     private Expression expr;
 
+        // TODO(George): Add SourceRange to constructor and store it via ASTNode.
     public Decorator(Expression expr, int line) {
         super("Decorator", line);
         this.expr = expr;
+    }
+
+    // TODO(George): Ensure every AST node exposes getters for its fields.
+    public Expression getExpr() {
+        return expr;
     }
 
     @Override
     public List<ASTNode> getChildren() {
         return List.of(expr);
     }
+
+    // TODO(George): Modify toString for all AST nodes.
     @Override
     public String toString() {
         return "Decorator (line " + lineNumber + ")";

@@ -21,6 +21,7 @@ public class CompareExpr extends Expression {
         this.left = left;
         this.operators = operators;
         this.rights = rights;
+        // TODO(George): Add SourceRange to constructor and store it via ASTNode.
     }
 
     public Expression getLeft() {
@@ -43,6 +44,7 @@ public class CompareExpr extends Expression {
         return kids;
     }
 
+    // TODO(George): Modify toString for all AST nodes.
     @Override
     public String toString() {
         return "CompareExpr{operators=" + operators + "} (line " + lineNumber + ")";
