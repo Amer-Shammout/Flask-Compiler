@@ -7,51 +7,201 @@ import antlr.FlaskLexer;
 import antlr.FlaskParser;
 import antlr.TemplateLexer;
 import antlr.TemplateParser;
-import org.antlr.v4.runtime.*;
-import java.nio.file.*;
-import AST.template.TemplateVisitor;
+import org.antlr.v4.runtime.CharStream;
+import org.antlr.v4.runtime.CharStreams;
+import org.antlr.v4.runtime.CommonTokenStream;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
+import java.util.Scanner;
 
 
 public class Main {
+
+    // Default input locations. Change these in one place when switching test data.
+    private static final Path DEFAULT_FLASK_SOURCE = Paths.get("src/Tests/FinalTests/app.py").toAbsolutePath().normalize();
+    private static final Path DEFAULT_TEMPLATE_SOURCE = Paths.get("src/Tests/FinalTests/products.html").toAbsolutePath().normalize();
+    private static final Path DEFAULT_TEMPLATE_DIRECTORY = Paths.get("src/Tests/FinalTests").toAbsolutePath().normalize();
+    private static final String FLASK_AST_OUTPUT = "ast-flask.dot";
+    private static final String TEMPLATE_AST_OUTPUT = "ast-template.dot";
+
+    private enum Mode {
+        FLASK_ONLY,
+        TEMPLATE_ONLY,
+        FLASK_AND_TEMPLATES
+    }
+
     public static void main(String[] args) throws Exception {
+        Mode mode = args.length > 0 ? parseMode(args[0]) : askMode();
 
-        Path p = Paths.get("src/Tests/FinalTests/app.py").toAbsolutePath();
-        CharStream input = CharStreams.fromPath(p);
+        switch (mode) {
+            case FLASK_ONLY -> runFlaskOnly(args);
+            case TEMPLATE_ONLY -> runTemplateOnly(args);
+            case FLASK_AND_TEMPLATES -> runCombined(args);
+        }
+    }
 
-                        //Flask Compiler//
+    private static Mode parseMode(String rawMode) {
+        String normalized = rawMode.trim().toLowerCase(Locale.ROOT);
+        return switch (normalized) {
+            case "1", "flask", "flask-only" -> Mode.FLASK_ONLY;
+            case "2", "template", "template-only" -> Mode.TEMPLATE_ONLY;
+            case "3", "both", "combined", "flask+template" -> Mode.FLASK_AND_TEMPLATES;
+            default -> throw new IllegalArgumentException("Unknown mode: " + rawMode);
+        };
+    }
 
-//        FlaskLexer lexer = new FlaskLexer(input);
-//        CommonTokenStream tokens = new CommonTokenStream(lexer);
-//        FlaskParser parser = new FlaskParser(tokens);
-//
-//        ProgramVisitor visitor = new ProgramVisitor();
-//        Program program = visitor.visit(parser.prog());
-//        ASTGraphvizPrinter.print(program, "ast.dot");
-//
-//        FlaskSymbolTable flaskSymbolTable = new FlaskSymbolTable();
-//        SymbolTable.SymbolTableVisitor stVisitor = new SymbolTable.SymbolTableVisitor();
-//        stVisitor.visitProgram(program);
-//        flaskSymbolTable = stVisitor.getSymbolTable();
-//        flaskSymbolTable.printSymbolTable();
+    private static Mode askMode() {
+        System.out.println("Choose execution mode:");
+        System.out.println("1) Flask only");
+        System.out.println("2) Template only");
+        System.out.println("3) Flask + templates");
+        System.out.print("Enter choice: ");
 
+        try (Scanner scanner = new Scanner(System.in)) {
+            String choice = scanner.nextLine().trim();
+            return parseMode(choice);
+        }
+    }
 
-                         //Template Compiler//
+    private static void runFlaskOnly(String[] args) throws Exception {
+        Path flaskPath = resolvePath(args, 1, DEFAULT_FLASK_SOURCE);
+        Program program = parseFlask(flaskPath);
 
+        ASTGraphvizPrinter.print(program, FLASK_AST_OUTPUT);
+        processFlaskSymbolTable(program, flaskPath);
+    }
+
+    private static void runTemplateOnly(String[] args) throws Exception {
+        Path templatePath = resolvePath(args, 1, DEFAULT_TEMPLATE_SOURCE);
+        ASTNode root = parseTemplate(templatePath);
+
+        ASTGraphvizPrinter.print(root, TEMPLATE_AST_OUTPUT);
+        processTemplateSymbolTable(root, templatePath);
+    }
+
+    private static void runCombined(String[] args) throws Exception {
+        Path flaskPath = resolvePath(args, 1, DEFAULT_FLASK_SOURCE);
+        List<Path> templatePaths = resolveTemplatePaths(args);
+
+        Program flaskProgram = parseFlask(flaskPath);
+        ASTGraphvizPrinter.print(flaskProgram, FLASK_AST_OUTPUT);
+        processFlaskSymbolTable(flaskProgram, flaskPath);
+
+        for (Path templatePath : templatePaths) {
+            ASTNode root = parseTemplate(templatePath);
+            String outputName = "ast-" + safeFileStem(templatePath) + ".dot";
+            ASTGraphvizPrinter.print(root, outputName);
+            processTemplateSymbolTable(root, templatePath);
+        }
+
+        System.out.println("Combined mode finished: Flask file + " + templatePaths.size() + " template file(s).");
+    }
+
+    private static Program parseFlask(Path path) throws Exception {
+        CharStream input = CharStreams.fromPath(path);
+        FlaskLexer lexer = new FlaskLexer(input);
+        CommonTokenStream tokens = new CommonTokenStream(lexer);
+        FlaskParser parser = new FlaskParser(tokens);
+        ProgramVisitor visitor = new ProgramVisitor();
+        return visitor.visitProg(parser.prog());
+    }
+
+    private static ASTNode parseTemplate(Path path) throws Exception {
+        CharStream input = CharStreams.fromPath(path);
         TemplateLexer lexer = new TemplateLexer(input);
         CommonTokenStream tokens = new CommonTokenStream(lexer);
         TemplateParser parser = new TemplateParser(tokens);
-
         TemplateVisitor visitor = new TemplateVisitor();
-        ASTNode root = visitor.visit(parser.template());
-        ASTGraphvizPrinter.print(root, "ast.dot");
+        return visitor.visitTemplateRoot((TemplateParser.TemplateRootContext) parser.template());
+    }
 
+    private static Path resolvePath(String[] args, int index, Path fallback) {
+        if (args.length > index && !args[index].isBlank()) {
+            return Paths.get(args[index]).toAbsolutePath().normalize();
+        }
+        return fallback;
+    }
 
-        // TemplateSymbolTable templateSymbolTable = new TemplateSymbolTable();
-        // JinjaASTVisitor stVisitor = new JinjaASTVisitor(templateSymbolTable);
-        // stVisitor.visit(root);
-        // templateSymbolTable.print();
+    private static List<Path> resolveTemplatePaths(String[] args) {
+        List<Path> paths = new ArrayList<>();
 
+        if (args.length > 2) {
+            for (int i = 2; i < args.length; i++) {
+                paths.add(Paths.get(args[i]).toAbsolutePath().normalize());
+            }
+            return paths;
+        }
 
+        if (Files.isDirectory(DEFAULT_TEMPLATE_DIRECTORY)) {
+            try (var stream = Files.list(DEFAULT_TEMPLATE_DIRECTORY)) {
+                stream.filter(path -> path.toString().endsWith(".html"))
+                        .forEach(paths::add);
+            } catch (Exception ignored) {
+                // Fall back to an empty list if the directory cannot be scanned.
+            }
+        }
+
+        if (paths.isEmpty()) {
+            paths.add(DEFAULT_TEMPLATE_SOURCE);
+        }
+
+        return paths;
+    }
+
+    private static String safeFileStem(Path path) {
+        String fileName = path.getFileName().toString();
+        int dotIndex = fileName.lastIndexOf('.');
+        return dotIndex >= 0 ? fileName.substring(0, dotIndex) : fileName;
+    }
+
+    private static void processFlaskSymbolTable(Program program, Path sourcePath) {
+        // TODO(Laila): Instantiate FlaskSymbolTableRepository/Builder and build the table here.
+        // Expected flow:
+        // 1. create the Flask symbol table repository or global table
+        // 2. create FlaskSymbolTableBuilder
+        // 3. call builder.build(program)
+        // 4. print the resulting Flask symbol table
+
+        // Intended call site when Laila completes the builders:
+        // SymbolTableRepository repository = new SymbolTableRepository(
+        //         new FlaskSymbolTable("flask-global", sourcePath.toString()),
+        //         new TemplateSymbolTable("template-global", null)
+        // );
+        // FlaskSymbolTableBuilder builder = new FlaskSymbolTableBuilder(repository);
+        // ISymbolTable symbolTable = builder.build(program);
+        // System.out.println(symbolTable);
+
+        printSymbolTablePlaceholder("Flask", sourcePath);
+    }
+
+    private static void processTemplateSymbolTable(ASTNode root, Path sourcePath) {
+        // TODO(Laila): Instantiate TemplateSymbolTableRepository/Builder and build the table here.
+        // Expected flow:
+        // 1. create the Template symbol table repository or global table
+        // 2. create TemplateSymbolTableBuilder
+        // 3. call builder.build(...) using the parsed template root
+        // 4. print the resulting Template symbol table
+
+        // Intended call site when Laila completes the builders:
+        // SymbolTableRepository repository = new SymbolTableRepository(
+        //         new FlaskSymbolTable("flask-global", null),
+        //         new TemplateSymbolTable("template-global", sourcePath.toString())
+        // );
+        // TemplateSymbolTableBuilder builder = new TemplateSymbolTableBuilder(repository);
+        // ISymbolTable symbolTable = builder.build(root);
+        // System.out.println(symbolTable);
+
+        printSymbolTablePlaceholder("Template", sourcePath);
+    }
+
+    private static void printSymbolTablePlaceholder(String kind, Path sourcePath) {
+        System.out.println("[TODO] " + kind + " symbol table for " + sourcePath.getFileName()
+                + " will be built and printed after Laila implements the builders.");
     }
 }
 
