@@ -32,8 +32,8 @@ import java.util.*;
  *       / Generate undefined symbol diagnostic
  *   }
  *
- * TODO(Member 5): Implement full cross-linking and type propagation logic.
- * TODO(Member 5): Add support for Flask context expressions (e.g., app.config, request.args).
+ * TODO(Sedra): Implement full cross-linking and type propagation logic.
+ * TODO(Sedra): Add support for Flask context expressions (e.g., app.config, request.args).
  */
 public class TemplateContextBridge {
 
@@ -88,7 +88,7 @@ public class TemplateContextBridge {
      * 3. Creates a TemplateContext for each with appropriate origin and linking.
      * 4. Generates diagnostics for unresolved or ambiguous symbols.
      *
-     * TODO(Member 5): Implement full bridging algorithm:
+     * TODO(Sedra): Implement full bridging algorithm:
      *   - Exact name matching (template var X matches Flask var X).
      *   - Scope matching (account for function/class scopes).
      *   - Type inference (infer template var type from Flask var).
@@ -98,7 +98,7 @@ public class TemplateContextBridge {
      * @param templateRoot Template AST root (optional, for reference).
      */
     public void bridge(Program program, TemplateNode templateRoot) {
-        // TODO(Member 5): Implement bridging logic.
+        // TODO(Sedra): Implement bridging logic.
         // 1. Extract template symbols from TemplateSymbolTable (via repository).
         // 2. For each, resolve via Flask symbol table using SymbolTableRepository.resolveAcross(...).
         // 3. Create TemplateContext with appropriate origin.
@@ -116,13 +116,13 @@ public class TemplateContextBridge {
      *
      * First checks contextMap (if bridged). If not found or not bridged, attempts on-demand resolution.
      *
-     * TODO(Member 5): Implement on-demand resolution logic.
+     * TODO(Sedra): Implement on-demand resolution logic.
      *
      * @param templateSymbolName Name of the symbol in template.
      * @return Optional TemplateContext; empty if symbol not found.
      */
     public Optional<TemplateContext> resolveTemplateSymbol(String templateSymbolName) {
-        // TODO(Member 5): Implement resolution.
+        // TODO(Sedra): Implement resolution.
         // 1. Check contextMap first.
         // 2. If not present and not yet bridged, perform lazy resolution.
         // 3. Return Optional.
@@ -135,7 +135,7 @@ public class TemplateContextBridge {
     /**
      * Resolve a template symbol by Symbol object (not just name).
      *
-     * TODO(Member 5): Implement Symbol-based resolution.
+     * TODO(Sedra): Implement Symbol-based resolution.
      *
      * @param templateSymbol Symbol from TemplateSymbolTable.
      * @return Optional TemplateContext.
@@ -147,13 +147,13 @@ public class TemplateContextBridge {
     /**
      * Look up a Flask symbol that corresponds to a template symbol.
      *
-     * TODO(Member 5): Implement Flask lookup with scope/type matching.
+     * TODO(Sedra): Implement Flask lookup with scope/type matching.
      *
      * @param templateSymbolName Name from template.
      * @return Optional Symbol from Flask scope.
      */
     public Optional<Symbol> lookupFlaskSymbol(String templateSymbolName) {
-        // TODO(Member 5): Query SymbolTableRepository.resolveAcross(...) or similar.
+        // TODO(Sedra): Query SymbolTableRepository.resolveAcross(...) or similar.
         return Optional.empty(); // Placeholder
     }
 
@@ -265,7 +265,7 @@ public class TemplateContextBridge {
     }
 
 
-    // === Diagnostic Generation (Member 5 Helpers) ===
+    // === Diagnostic Generation (Sedra Helpers) ===
 
     /**
      * Generate a diagnostic for an undefined template variable.

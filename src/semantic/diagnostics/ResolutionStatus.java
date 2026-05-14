@@ -21,7 +21,7 @@ package semantic.diagnostics;
  *       // Generate E203 diagnostic mentioning the scope where it exists
  *   }
  *
- * TODO(Member 5): Implement resolution tracking in SymbolTable/Bridge methods.
+ * TODO(Sedra): Implement resolution tracking in SymbolTable/Bridge methods.
  */
 public enum ResolutionStatus {
 

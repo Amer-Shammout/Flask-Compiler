@@ -25,7 +25,7 @@ import java.util.Optional;
  * - resolvedType: Type information (using TypeKind enum, not String).
  * - sourceHint: Optional source location hint (e.g., line in parent template).
  *
- * TODO(Member 5): Extend with more context fields (e.g., original name in Flask, line in parent template).
+ * TODO(Sedra): Extend with more context fields (e.g., original name in Flask, line in parent template).
  */
 public class TemplateContext {
 
@@ -195,7 +195,7 @@ public class TemplateContext {
      *
      * Format: "Symbol 'name' from ORIGIN (type: TYPE, linked to Flask: yes/no)"
      *
-     * TODO(Member 5): Implement detailed context string for error messages.
+     * TODO(Sedra): Implement detailed context string for error messages.
      *
      * @return Descriptive string.
      */

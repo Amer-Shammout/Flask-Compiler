@@ -8,7 +8,7 @@ package semantic.diagnostics;
  *
  * Usage: When creating a Diagnostic, specify its severity level to indicate the impact.
  *
- * TODO(Member 5): Add severity-based filtering or prioritization logic if needed.
+ * TODO(Sedra): Add severity-based filtering or prioritization logic if needed.
  */
 public enum DiagnosticSeverity {
     /**

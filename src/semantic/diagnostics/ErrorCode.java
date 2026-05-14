@@ -24,8 +24,8 @@ package semantic.diagnostics;
  *       "Did you mean 'X'?"
  *   );
  *
- * TODO(Member 5): Add more error codes as semantic analysis features expand.
- * TODO(Member 5): Consider organizing codes by category (E0xx for undefined, E1xx for type, etc.).
+ * TODO(Sedra): Add more error codes as semantic analysis features expand.
+ * TODO(Sedra): Consider organizing codes by category (E0xx for undefined, E1xx for type, etc.).
  */
 public enum ErrorCode {
 
@@ -226,7 +226,7 @@ public enum ErrorCode {
     /**
      * Get the severity of this error code based on prefix.
      *
-     * TODO(Member 5): Implement severity mapping for quick filtering.
+     * TODO(Sedra): Implement severity mapping for quick filtering.
      *
      * @return DiagnosticSeverity (ERROR if E, WARNING if W, etc.)
      */

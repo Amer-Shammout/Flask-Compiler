@@ -67,7 +67,7 @@ public class DiagnosticCollector {
     /**
      * Add a diagnostic to the collection and update severity counts.
      *
-     * TODO(Member 5): Implement deduplication logic if the same diagnostic is added multiple times.
+     * TODO(Sedra): Implement deduplication logic if the same diagnostic is added multiple times.
      *
      * @param diagnostic The Diagnostic to add.
      */
@@ -252,7 +252,7 @@ public class DiagnosticCollector {
      *   [WARNING] [W102] Unused variable 'y' at line 8:3
      *   ...
      *
-     * TODO(Member 5): Implement pretty printing with sorting by severity/location.
+     * TODO(Sedra): Implement pretty printing with sorting by severity/location.
      */
     public void reportAll() {
         System.out.println("=== Diagnostic Summary ===");
@@ -268,7 +268,7 @@ public class DiagnosticCollector {
     /**
      * Get all diagnostics formatted as a single string report.
      *
-     * TODO(Member 5): Implement detailed report generation with sorting/filtering options.
+     * TODO(Sedra): Implement detailed report generation with sorting/filtering options.
      *
      * @return String representation of all diagnostics.
      */

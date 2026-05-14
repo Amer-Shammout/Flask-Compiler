@@ -153,7 +153,7 @@ public class Diagnostic {
      *   [ERROR] [5:10] [E001] Undefined variable 'x'
      *     Hint: Did you mean 'X' defined on line 3?
      *
-     * TODO(Member 5): Implement formatting logic with color codes (if needed for terminal output).
+     * TODO(Sedra): Implement formatting logic with color codes (if needed for terminal output).
      *
      * @return Formatted string representation.
      */

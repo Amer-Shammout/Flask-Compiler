@@ -18,8 +18,8 @@ import java.util.Optional;
  *   TypeKind listType = TypeKind.LIST; // non-parametric
  *   TypeKind listOfInt = TypeKind.parameterized(TypeKind.LIST, TypeKind.INT);
  *
- * TODO(Member 5): Implement parametric types fully (nested generics, union types, etc.).
- * TODO(Member 5): Add type compatibility and conversion checking.
+ * TODO(Sedra): Implement parametric types fully (nested generics, union types, etc.).
+ * TODO(Sedra): Add type compatibility and conversion checking.
  */
 public enum TypeKind {
 
@@ -192,7 +192,7 @@ public enum TypeKind {
      * - Exact match required for primitives (INT != FLOAT).
      * - Container types checked by element type if parametrized.
      *
-     * TODO(Member 5): Implement full type compatibility matrix with inheritance/subtypes.
+     * TODO(Sedra): Implement full type compatibility matrix with inheritance/subtypes.
      *
      * @param other Another TypeKind to check against.
      * @return true if this type is assignable to other.
@@ -210,7 +210,7 @@ public enum TypeKind {
 
         // INT and FLOAT may be compatible (with warning)
         if ((this == INT && other == FLOAT) || (this == FLOAT && other == INT)) {
-            return true; // TODO(Member 5): Decide if this should be warning instead
+            return true; // TODO(Sedra): Decide if this should be warning instead
         }
 
         // NONE is only compatible with NONE/ANY
