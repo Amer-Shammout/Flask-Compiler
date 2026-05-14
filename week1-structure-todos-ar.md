@@ -38,9 +38,17 @@
 - TODOs لبناء FlaskSymbolTable (Symbol/Scope/Kind).
 - TODOs لبناء TemplateSymbolTable.
 
-**Member 5 (Diagnostics + Bridge)**
-- TODOs لبناء Diagnostics model.
-- TODOs لبناء TemplateContextBridge (ربط Flask → Template).
+**Member 5 (Diagnostics + Bridge)** — ✅ **SCAFFOLDING COMPLETE**
+- ✅ DiagnosticSeverity: Enum للخطورة (ERROR, WARNING, INFO, HINT)
+- ✅ Diagnostic: رسالة واحدة مع SourceRange، code، hint
+- ✅ DiagnosticCollector: مجمع ومدير الرسائل مع تصفية حسب الخطورة
+- ✅ TemplateContext: سياق رمز Template مع ربط اختياري لـ Flask
+- ✅ TemplateContextBridge: جسر ربط Symbol Tables مع توليد diagnostics
+- ✅ README.md: دليل شامل للتنفيذ
+- **TODOs للتنفيذ:**
+  - تنفيذ طباعة مفصلة وتصفية في DiagnosticCollector
+  - تنفيذ خوارزمية ربط كاملة في TemplateContextBridge
+  - توليد diagnostics متخصصة (undefined, shadowing, type-mismatch)
 
 ---
 
@@ -55,11 +63,11 @@
 ---
 
 ### 2) Diagnostics
-- `semantic/diagnostics/Diagnostic.java`
-- `semantic/diagnostics/DiagnosticSeverity.java`
-- `semantic/diagnostics/DiagnosticCollector.java`
+- `semantic/diagnostics/DiagnosticSeverity.java` ✅ (إنشاء: Enum للخطورة)
+- `semantic/diagnostics/Diagnostic.java` ✅ (إنشاء: رسالة واحدة مع SourceRange)
+- `semantic/diagnostics/DiagnosticCollector.java` ✅ (إنشاء: مجمع ومدير للرسائل)
 
-**TODOs**: Member 5.
+**TODOs**: Member 5 (تنفيذ طباعة وتصفية التقارير).
 
 ---
 
@@ -99,10 +107,10 @@
 ---
 
 ### 6) Bridge (Flask → Template)
-- `semantic/bridge/TemplateContextBridge.java`
-- `semantic/bridge/TemplateContext.java`
+- `semantic/bridge/TemplateContext.java` ✅ (إنشاء: سياق رمز من Template)
+- `semantic/bridge/TemplateContextBridge.java` ✅ (إنشاء: جسر ربط Flask + Template)
 
-**TODOs**: Member 5.
+**TODOs**: Member 5 (تنفيذ خوارزمية الربط والاستدلال من السياق).
 
 ---
 
