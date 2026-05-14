@@ -11,8 +11,11 @@ import AST.template.jinja.stmt.*;
 import antlr.TemplateParser;
 import antlr.TemplateParserBaseVisitor;
 import org.antlr.v4.runtime.ParserRuleContext;
+import org.antlr.v4.runtime.Token;
 import org.antlr.v4.runtime.tree.ParseTree;
 import org.antlr.v4.runtime.tree.TerminalNode;
+import AST.SourcePosition;
+import AST.SourceRange;
 
 
 public class TemplateVisitor extends TemplateParserBaseVisitor<ASTNode> {
@@ -34,7 +37,7 @@ public class TemplateVisitor extends TemplateParserBaseVisitor<ASTNode> {
             if (node != null) children.add(node);
         }
 
-        return new HtmlDocument(children, ctx.start.getLine());
+        return new HtmlDocument(children, range(ctx));
     }
 
 
@@ -51,7 +54,7 @@ public class TemplateVisitor extends TemplateParserBaseVisitor<ASTNode> {
     @Override
     public ASTNode visitTextNode(TemplateParser.TextNodeContext ctx) {
         String raw = ctx.HTML_TEXT().getText();
-        return new HtmlText(raw, ctx.start.getLine());
+        return new HtmlText(raw, range(ctx));
     }
 
     /* =====================================================
@@ -99,7 +102,7 @@ public class TemplateVisitor extends TemplateParserBaseVisitor<ASTNode> {
                 tagName,
                 attrs,
                 children,
-                ctx.start.getLine()
+                range(ctx)
         );
     }
 
@@ -119,7 +122,7 @@ public class TemplateVisitor extends TemplateParserBaseVisitor<ASTNode> {
         return new HtmlSelfClosingElement(
                 tagName,
                 attrs,
-                ctx.start.getLine()
+                range(ctx)
         );
     }
 
@@ -140,7 +143,7 @@ public class TemplateVisitor extends TemplateParserBaseVisitor<ASTNode> {
         return new HtmlVoidElement(
                 tagName,
                 attrs,
-                ctx.start.getLine()
+                range(ctx)
         );
     }
 
@@ -154,7 +157,7 @@ public class TemplateVisitor extends TemplateParserBaseVisitor<ASTNode> {
             if (node != null) children.add(node);
         }
 
-        return new HtmlDocument(children, ctx.start.getLine());
+        return new HtmlDocument(children, range(ctx));
     }
 
     @Override
@@ -163,7 +166,7 @@ public class TemplateVisitor extends TemplateParserBaseVisitor<ASTNode> {
         String name = ctx.HTML_ATTR_NAME().getText();
         String value = ctx.HTML_STRING().getText();
 
-        return new HtmlAttribute(name, value, ctx.start.getLine());
+        return new HtmlAttribute(name, value, range(ctx));
     }
 
 
@@ -187,7 +190,7 @@ public class TemplateVisitor extends TemplateParserBaseVisitor<ASTNode> {
         return new HtmlStyleElement(
                 attrs,
                 sheet,
-                ctx.start.getLine()
+                range(ctx)
         );
     }
 
@@ -201,7 +204,7 @@ public class TemplateVisitor extends TemplateParserBaseVisitor<ASTNode> {
             if (node != null) items.add(node);
         }
 
-        return new CssStylesheet(items, ctx.start.getLine());
+        return new CssStylesheet(items, range(ctx));
     }
 
 
@@ -221,13 +224,13 @@ public class TemplateVisitor extends TemplateParserBaseVisitor<ASTNode> {
             if (n != null) blockContents.add(n);
         }
 
-        return new CssRule(selector, blockContents, ctx.start.getLine());
+        return new CssRule(selector, blockContents, range(ctx));
     }
 
     @Override
     public ASTNode visitCssRawSelector(TemplateParser.CssRawSelectorContext ctx) {
 
-        int line = ctx.start.getLine();
+        SourceRange ctxRange = range(ctx);
 
         String selectorText = ctx.getText();
 
@@ -240,7 +243,7 @@ public class TemplateVisitor extends TemplateParserBaseVisitor<ASTNode> {
             }
         }
 
-        return new CssSelector(selectorText, jinjaExpressions, line);
+        return new CssSelector(selectorText, jinjaExpressions, ctxRange);
     }
 
     @Override
@@ -252,7 +255,7 @@ public class TemplateVisitor extends TemplateParserBaseVisitor<ASTNode> {
     public ASTNode visitCssDeclaration(TemplateParser.CssDeclarationContext ctx) {
         String prop = ctx.CSS_PROPERTY().getText();
         CssValue val = (CssValue) visit(ctx.css_value());
-        return new CssDeclaration(prop, val, ctx.start.getLine());
+        return new CssDeclaration(prop, val, range(ctx));
     }
 
     @Override
@@ -273,29 +276,20 @@ public class TemplateVisitor extends TemplateParserBaseVisitor<ASTNode> {
                 }
                 else if (n instanceof JinjaExpr expr) {
                     // {{ ... }} inside a value
-                    parts.add(new CssJinjaExpressionValue(expr, getLine(child)));
+                    parts.add(new CssJinjaExpressionValue(expr, range(child)));
                 }
             }
         }
 
-        return new CssValue(parts, ctx.start.getLine());
-    }
-
-
-    private int getLine(ParseTree t) {
-        if (t instanceof ParserRuleContext prc)
-            return prc.getStart().getLine();
-        if (t instanceof TerminalNode tn)
-            return tn.getSymbol().getLine();
-        return -1;
-    }
+        return new CssValue(parts, range(ctx));
+        }
 
 
     @Override
     public ASTNode visitCssPrimitiveValue(TemplateParser.CssPrimitiveValueContext ctx) {
 
         String raw = ctx.CSS_VALUE().getText();
-        return new CssPrimitiveValue(raw, ctx.start.getLine());
+        return new CssPrimitiveValue(raw, range(ctx));
     }
 
 
@@ -303,15 +297,14 @@ public class TemplateVisitor extends TemplateParserBaseVisitor<ASTNode> {
     public ASTNode visitCssJinjaExpressionValue(TemplateParser.CssJinjaExpressionValueContext ctx) {
 
         JinjaExpr expr = (JinjaExpr) visit(ctx.jinja_expression());
-        return new CssJinjaExpressionValue(expr, ctx.start.getLine());
+        return new CssJinjaExpressionValue(expr, range(ctx));
     }
 
 
     @Override
     public ASTNode visitCssFunctionValue(TemplateParser.CssFunctionValueContext ctx) {
 
-        CssFunctionCall func = (CssFunctionCall) visit(ctx.css_function_call());
-        return func;
+        return visit(ctx.css_function_call());
     }
 
     @Override
@@ -331,7 +324,7 @@ public class TemplateVisitor extends TemplateParserBaseVisitor<ASTNode> {
         }
 
 
-        return new CssFunctionCall(name, args, ctx.start.getLine());
+        return new CssFunctionCall(name, args, range(ctx));
     }
 
     @Override
@@ -354,7 +347,7 @@ public class TemplateVisitor extends TemplateParserBaseVisitor<ASTNode> {
             elseVal = (CssValue) visit(lastChild);
         }
 
-        return new CssJinjaValueIf(cond, thenVal, elseVal, ctx.start.getLine());
+        return new CssJinjaValueIf(cond, thenVal, elseVal, range(ctx));
     }
 
     @Override
@@ -403,12 +396,12 @@ public class TemplateVisitor extends TemplateParserBaseVisitor<ASTNode> {
     public ASTNode visitJinjaBinaryExpr(TemplateParser.JinjaBinaryExprContext ctx) {
 
         JinjaExpr result = (JinjaExpr) visit(ctx.jinja_term(0));
-        int line = ctx.start.getLine();
+        SourceRange ctxRange = range(ctx);
 
         for (int i = 1; i < ctx.jinja_term().size(); i++) {
             String op = ctx.JINJA_OP(i - 1).getText();
             JinjaExpr right = (JinjaExpr) visit(ctx.jinja_term(i));
-            result = new JinjaBinaryExpr(result, op, right, line);
+            result = new JinjaBinaryExpr(result, op, right, ctxRange);
         }
 
         return result;
@@ -424,7 +417,7 @@ public class TemplateVisitor extends TemplateParserBaseVisitor<ASTNode> {
             if (p instanceof TemplateParser.JinjaMemberAccessContext mem) {
 
                 String name = mem.JINJA_ID().getText();
-                expr = new JinjaAttrExpr(expr, name, mem.start.getLine());
+                expr = new JinjaAttrExpr(expr, name, range(mem));
             }
 
             else if (p instanceof TemplateParser.JinjaCallPostfixContext callPost) {
@@ -446,7 +439,7 @@ public class TemplateVisitor extends TemplateParserBaseVisitor<ASTNode> {
                     }
                 }
 
-                expr = new JinjaCallExpr(expr, args, cctx.start.getLine());
+                expr = new JinjaCallExpr(expr, args, range(cctx));
             }
 
             else if (p instanceof TemplateParser.JinjaFilterPostfixContext filPost) {
@@ -470,7 +463,7 @@ public class TemplateVisitor extends TemplateParserBaseVisitor<ASTNode> {
                     }
                 }
 
-                expr = new JinjaFilterExpr(expr, filterName, args, fctx.start.getLine());
+                expr = new JinjaFilterExpr(expr, filterName, args, range(fctx));
             }
         }
 
@@ -482,17 +475,17 @@ public class TemplateVisitor extends TemplateParserBaseVisitor<ASTNode> {
 
     @Override
     public ASTNode visitJinjaIdAtom(TemplateParser.JinjaIdAtomContext ctx) {
-        return new JinjaIdentifierExpr(ctx.JINJA_ID().getText(), ctx.start.getLine());
+        return new JinjaIdentifierExpr(ctx.JINJA_ID().getText(), range(ctx));
     }
 
     @Override
     public ASTNode visitJinjaStringAtom(TemplateParser.JinjaStringAtomContext ctx) {
-        return new JinjaStringLiteralExpr(ctx.JINJA_EXPR_STRING().getText(), ctx.start.getLine());
+        return new JinjaStringLiteralExpr(ctx.JINJA_EXPR_STRING().getText(), range(ctx));
     }
 
     @Override
     public ASTNode visitJinjaNumberAtom(TemplateParser.JinjaNumberAtomContext ctx) {
-        return new JinjaNumberLiteralExpr(ctx.JINJA_NUMBER().getText(), ctx.start.getLine());
+        return new JinjaNumberLiteralExpr(ctx.JINJA_NUMBER().getText(), range(ctx));
     }
 
     @Override
@@ -504,7 +497,7 @@ public class TemplateVisitor extends TemplateParserBaseVisitor<ASTNode> {
     public ASTNode visitJinjaStmtExpr(TemplateParser.JinjaStmtExprContext ctx) {
 
         JinjaExpr result = (JinjaExpr) visit(ctx.jinja_stmt_term(0));
-        int line = ctx.start.getLine();
+        SourceRange ctxRange = range(ctx);
 
         for (int i = 1; i < ctx.jinja_stmt_term().size(); i++) {
             TemplateParser.Jinja_stmt_opContext opCtx = ctx.jinja_stmt_op(i - 1);
@@ -518,8 +511,8 @@ public class TemplateVisitor extends TemplateParserBaseVisitor<ASTNode> {
                 op = "or";
             }
 
-            JinjaExpr right = (JinjaExpr) visit(ctx.jinja_stmt_term(i));
-            result = new JinjaBinaryExpr(result, op, right, line);
+                JinjaExpr right = (JinjaExpr) visit(ctx.jinja_stmt_term(i));
+                result = new JinjaBinaryExpr(result, op, right, ctxRange);
         }
 
         return result;
@@ -534,7 +527,7 @@ public class TemplateVisitor extends TemplateParserBaseVisitor<ASTNode> {
 
             if (p instanceof TemplateParser.JinjaStmtMemberAccessContext mem) {
                 String name = mem.JINJA_STMT_ID().getText();
-                expr = new JinjaAttrExpr(expr, name, mem.start.getLine());
+                expr = new JinjaAttrExpr(expr, name, range(mem));
             }
 
             else if (p instanceof TemplateParser.JinjaStmtCallContext callPost) {
@@ -558,7 +551,7 @@ public class TemplateVisitor extends TemplateParserBaseVisitor<ASTNode> {
                     }
                 }
 
-                expr = new JinjaCallExpr(expr, args, cctx.start.getLine());
+                expr = new JinjaCallExpr(expr, args, range(cctx));
             }
 
             else if (p instanceof TemplateParser.JinjaStmtFilterContext filPost) {
@@ -586,12 +579,12 @@ public class TemplateVisitor extends TemplateParserBaseVisitor<ASTNode> {
                     }
                 }
 
-                expr = new JinjaFilterExpr(expr, filterName, args, fctx.start.getLine());
+                expr = new JinjaFilterExpr(expr, filterName, args, range(fctx));
             }
         }
 
         if (ctx.JINJA_NOT() != null) {
-            expr = new JinjaUnaryExpr("not", expr, ctx.start.getLine());
+            expr = new JinjaUnaryExpr("not", expr, range(ctx));
         }
 
         return expr;
@@ -601,17 +594,17 @@ public class TemplateVisitor extends TemplateParserBaseVisitor<ASTNode> {
 
     @Override
     public ASTNode visitJinjaStmtIdAtom(TemplateParser.JinjaStmtIdAtomContext ctx) {
-        return new JinjaIdentifierExpr(ctx.JINJA_STMT_ID().getText(), ctx.start.getLine());
+        return new JinjaIdentifierExpr(ctx.JINJA_STMT_ID().getText(), range(ctx));
     }
 
     @Override
     public ASTNode visitJinjaStmtStringAtom(TemplateParser.JinjaStmtStringAtomContext ctx) {
-        return new JinjaStringLiteralExpr(ctx.JINJA_STMT_STRING().getText(), ctx.start.getLine());
+        return new JinjaStringLiteralExpr(ctx.JINJA_STMT_STRING().getText(), range(ctx));
     }
 
     @Override
     public ASTNode visitJinjaStmtNumberAtom(TemplateParser.JinjaStmtNumberAtomContext ctx) {
-        return new JinjaNumberLiteralExpr(ctx.JINJA_STMT_NUMBER().getText(), ctx.start.getLine());
+        return new JinjaNumberLiteralExpr(ctx.JINJA_STMT_NUMBER().getText(), range(ctx));
     }
 
     @Override
@@ -626,7 +619,7 @@ public class TemplateVisitor extends TemplateParserBaseVisitor<ASTNode> {
             ASTNode node = visit(t);
             if (node != null) children.add(node);
         }
-        return new JinjaBody(children, ctx.start.getLine());
+        return new JinjaBody(children, range(ctx));
     }
 
     @Override
@@ -636,7 +629,7 @@ public class TemplateVisitor extends TemplateParserBaseVisitor<ASTNode> {
             ASTNode node = visit(c);
             if (node != null) children.add(node);
         }
-        return new JinjaBody(children, ctx.start.getLine());
+        return new JinjaBody(children, range(ctx));
     }
 
 
@@ -680,7 +673,7 @@ public class TemplateVisitor extends TemplateParserBaseVisitor<ASTNode> {
             JinjaExpr eCond = (JinjaExpr) visit(ectx.jinja_stmt_expr());
             JinjaBody eBody = (JinjaBody) visit(ectx.jinja_body());
 
-            elifs.add(new JinjaElifClause(eCond, eBody, ectx.start.getLine()));
+            elifs.add(new JinjaElifClause(eCond, eBody, range(ectx)));
         }
 
         JinjaBody elseBody = null;
@@ -694,7 +687,7 @@ public class TemplateVisitor extends TemplateParserBaseVisitor<ASTNode> {
             elseBody = (JinjaBody) visit(elctx.jinja_body());
         }
 
-        return new JinjaIfStmt(cond, thenBody, elifs, elseBody, ctx.start.getLine());
+        return new JinjaIfStmt(cond, thenBody, elifs, elseBody, range(ctx));
     }
 
 
@@ -721,7 +714,7 @@ public class TemplateVisitor extends TemplateParserBaseVisitor<ASTNode> {
 
         JinjaBody body = (JinjaBody) visit(fctx.jinja_body());
 
-        return new JinjaForStmt(vars, iterable, body, ctx.start.getLine());
+        return new JinjaForStmt(vars, iterable, body, range(ctx));
     }
 
 
@@ -734,7 +727,7 @@ public class TemplateVisitor extends TemplateParserBaseVisitor<ASTNode> {
     public ASTNode visitJinjaInclude(TemplateParser.JinjaIncludeContext ctx) {
 
         String templateName = ctx.JINJA_STMT_STRING().getText();
-        return new JinjaIncludeStmt(templateName, ctx.start.getLine());
+        return new JinjaIncludeStmt(templateName, range(ctx));
     }
 
 
@@ -750,7 +743,7 @@ public class TemplateVisitor extends TemplateParserBaseVisitor<ASTNode> {
 
         JinjaBody body = (JinjaBody) visit(ctx.jinja_body());
 
-        return new JinjaBlockStmt(name, body, ctx.start.getLine());
+        return new JinjaBlockStmt(name, body, range(ctx));
     }
 
     @Override
@@ -764,8 +757,40 @@ public class TemplateVisitor extends TemplateParserBaseVisitor<ASTNode> {
         String raw = ctx.JINJA_STMT_STRING().getText();
         String templateName = raw.substring(1, raw.length() - 1);
 
-        return new JinjaExtendsStmt(templateName, ctx.start.getLine());
+        return new JinjaExtendsStmt(templateName, range(ctx));
     }
 
+    // Helpers to create SourceRange from ANTLR parse nodes
+    private SourceRange range(ParseTree t) {
+        if (t instanceof ParserRuleContext prc) return range(prc);
+        if (t instanceof TerminalNode tn) {
+            var sym = tn.getSymbol();
+            if (sym == null) return null;
+            int startCol = sym.getCharPositionInLine() + 1;
+            int endCol = startCol + sym.getText().length() - 1;
+            SourcePosition p1 = new SourcePosition(sym.getLine(), startCol);
+            SourcePosition p2 = new SourcePosition(sym.getLine(), endCol);
+            return new SourceRange(p1, p2);
+        }
+        return null;
+    }
+
+    private SourceRange range(ParserRuleContext ctx) {
+        if (ctx == null) return null;
+        Token s = ctx.getStart();
+        Token e = ctx.getStop() != null ? ctx.getStop() : s;
+        
+        // Start position: start token's first character (1-based)
+        int startCol = s.getCharPositionInLine() + 1;
+        SourcePosition sp = new SourcePosition(s.getLine(), startCol);
+        
+        // End position: stop token's last character (1-based, inclusive)
+        int stopStartCol = e.getCharPositionInLine() + 1;
+        int tokenLength = e.getText().length();
+        int endCol = stopStartCol + tokenLength - 1;
+        SourcePosition ep = new SourcePosition(e.getLine(), endCol);
+        
+        return new SourceRange(sp, ep);
+    }
 
 }

@@ -1,6 +1,7 @@
 package AST.template.css;
 
 import AST.ASTNode;
+import AST.SourceRange;
 import AST.template.jinja.expr.JinjaExpr;
 
 import java.util.ArrayList;
@@ -13,8 +14,8 @@ public class CssSelector extends CssNode {
     private final String selectorText;
     private final List<JinjaExpr> jinjaExpressions;
 
-    public CssSelector(String selectorText, List<JinjaExpr> jinjaExpressions, int lineNumber) {
-        super("CssSelector", lineNumber);
+    public CssSelector(String selectorText, List<JinjaExpr> jinjaExpressions, SourceRange sourceRange) {
+        super("CssSelector", sourceRange);
         this.selectorText = selectorText;
         this.jinjaExpressions = jinjaExpressions;
     }
@@ -36,7 +37,7 @@ public class CssSelector extends CssNode {
     // TODO(Ghalia): Modify toString for all AST nodes.
     @Override
     public String toString() {
-        return "CssSelector \"" + selectorText + "\" (line " + lineNumber + ")";
+        return "CssSelector \"" + selectorText + "\" " + formatLocation();
     }
 }
 

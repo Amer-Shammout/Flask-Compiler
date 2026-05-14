@@ -20,8 +20,8 @@ public class JinjaIfStmt extends JinjaStmt {
                        JinjaBody thenBody,
                        List<JinjaElifClause> elifClauses,
                        JinjaBody elseBody,
-                       int lineNumber) {
-        super("JinjaIfStmt", lineNumber);
+                       AST.SourceRange sourceRange) {
+        super("JinjaIfStmt", sourceRange);
         this.condition = condition;
         this.thenBody = thenBody;
         this.elifClauses = elifClauses;
@@ -58,6 +58,6 @@ public class JinjaIfStmt extends JinjaStmt {
     // TODO(Ghalia): Modify toString for all AST nodes.
     @Override
     public String toString() {
-        return "JinjaIfStmt (line " + lineNumber + ")";
+        return "JinjaIfStmt " + formatLocation();
     }
 }

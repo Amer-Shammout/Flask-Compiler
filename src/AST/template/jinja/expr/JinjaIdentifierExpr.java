@@ -1,6 +1,5 @@
 package AST.template.jinja.expr;
 
-import java.util.HashSet;
 import java.util.Set;
 
 public class JinjaIdentifierExpr extends JinjaExpr {
@@ -9,8 +8,8 @@ public class JinjaIdentifierExpr extends JinjaExpr {
 
     private final String name;
 
-    public JinjaIdentifierExpr(String name, int lineNumber) {
-        super("JinjaIdentifierExpr", lineNumber);
+    public JinjaIdentifierExpr(String name, AST.SourceRange sourceRange) {
+        super("JinjaIdentifierExpr", sourceRange);
         this.name = name;
     }
 
@@ -26,6 +25,6 @@ public class JinjaIdentifierExpr extends JinjaExpr {
     // TODO(Ghalia): Modify toString for all AST nodes.
     @Override
     public String toString() {
-        return "JinjaIdentifier \"" + name + "\" (line " + lineNumber + ")";
+        return "JinjaIdentifier \"" + name + "\" " + formatLocation();
     }
 }

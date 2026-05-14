@@ -6,8 +6,8 @@ public class CssPrimitiveValue extends CssValuePart {
 
     private final String text;
 
-    public CssPrimitiveValue(String text, int lineNumber) {
-        super("CssPrimitiveValue", lineNumber);
+    public CssPrimitiveValue(String text, AST.SourceRange sourceRange) {
+        super("CssPrimitiveValue", sourceRange);
         this.text = text;
     }
 
@@ -19,6 +19,6 @@ public class CssPrimitiveValue extends CssValuePart {
     // TODO(Ghalia): Modify toString for all AST nodes.
     @Override
     public String toString() {
-        return "CssPrimitiveValue \"" + text + "\" (line " + lineNumber + ")";
+        return "CssPrimitiveValue \"" + text + "\" " + formatLocation();
     }
 }

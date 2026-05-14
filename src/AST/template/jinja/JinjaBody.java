@@ -1,6 +1,7 @@
 package AST.template.jinja;
 
 import AST.ASTNode;
+import AST.SourceRange;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -11,8 +12,8 @@ public class JinjaBody extends JinjaNode {
 
     private final List<ASTNode> children;
 
-    public JinjaBody(List<ASTNode> children, int lineNumber) {
-        super("JinjaBody", lineNumber);
+    public JinjaBody(List<ASTNode> children, SourceRange sourceRange) {
+        super("JinjaBody", sourceRange);
         this.children = children;
     }
 
@@ -29,6 +30,6 @@ public class JinjaBody extends JinjaNode {
     // TODO(Ghalia): Modify toString for all AST nodes.
     @Override
     public String toString() {
-        return "JinjaBody (line " + lineNumber + ")";
+        return "JinjaBody " + formatLocation();
     }
 }

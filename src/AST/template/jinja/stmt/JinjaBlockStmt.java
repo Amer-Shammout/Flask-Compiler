@@ -12,8 +12,8 @@ public class JinjaBlockStmt extends JinjaStmt {
     private final String name;
     private final JinjaBody body;
 
-    public JinjaBlockStmt(String name, JinjaBody body, int lineNumber) {
-        super("JinjaBlockStmt", lineNumber);
+    public JinjaBlockStmt(String name, JinjaBody body, AST.SourceRange sourceRange) {
+        super("JinjaBlockStmt", sourceRange);
         this.name = name;
         this.body = body;
     }
@@ -35,6 +35,6 @@ public class JinjaBlockStmt extends JinjaStmt {
     // TODO(Ghalia): Modify toString for all AST nodes.
     @Override
     public String toString() {
-        return "JinjaBlock \"" + name + "\" (line " + lineNumber + ")";
+        return "JinjaBlock \"" + name + "\" " + formatLocation();
     }
 }

@@ -18,8 +18,8 @@ public class JinjaForStmt extends JinjaStmt {
     public JinjaForStmt(List<String> variables,
                         JinjaExpr iterable,
                         JinjaBody body,
-                        int lineNumber) {
-        super("JinjaForStmt", lineNumber);
+                        AST.SourceRange sourceRange) {
+        super("JinjaForStmt", sourceRange);
         this.variables = variables;
         this.iterable = iterable;
         this.body = body;
@@ -49,6 +49,6 @@ public class JinjaForStmt extends JinjaStmt {
     // TODO(Ghalia): Modify toString for all AST nodes.
     @Override
     public String toString() {
-        return "JinjaForStmt (line " + lineNumber + ")";
+        return "JinjaForStmt " + formatLocation();
     }
 }

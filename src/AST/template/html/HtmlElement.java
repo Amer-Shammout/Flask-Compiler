@@ -1,6 +1,7 @@
 package AST.template.html;
 
 import AST.ASTNode;
+import AST.SourceRange;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -14,8 +15,8 @@ public abstract class HtmlElement extends HtmlNode {
     public HtmlElement(String nodeName,
                        String tagName,
                        List<HtmlAttribute> attributes,
-                       int lineNumber) {
-        super(nodeName, lineNumber);
+                       SourceRange sourceRange) {
+        super(nodeName, sourceRange);
         this.tagName = tagName;
         this.attributes = attributes;
     }
@@ -37,7 +38,7 @@ public abstract class HtmlElement extends HtmlNode {
     // TODO(Ghalia): Modify toString for all AST nodes.
     @Override
     public String toString() {
-        return nodeName + " <" + tagName + "> (line " + lineNumber + ")";
+        return nodeName + " <" + tagName + "> " + formatLocation();
     }
 
 }

@@ -3,7 +3,6 @@ package AST.template.jinja.expr;
 import AST.ASTNode;
 
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
@@ -14,8 +13,8 @@ public class JinjaCallExpr extends JinjaExpr {
     private final JinjaExpr callee;
     private final List<JinjaExpr> args;
 
-    public JinjaCallExpr(JinjaExpr callee, List<JinjaExpr> args, int lineNumber) {
-        super("JinjaCallExpr", lineNumber);
+    public JinjaCallExpr(JinjaExpr callee, List<JinjaExpr> args, AST.SourceRange sourceRange) {
+        super("JinjaCallExpr", sourceRange);
         this.callee = callee;
         this.args = args;
     }
@@ -40,7 +39,7 @@ public class JinjaCallExpr extends JinjaExpr {
     // TODO(Ghalia): Modify toString for all AST nodes.
     @Override
     public String toString() {
-        return "JinjaCall (line " + lineNumber + ")";
+        return "JinjaCall " + formatLocation();
     }
     @Override
     public Set<String> getVariables() {

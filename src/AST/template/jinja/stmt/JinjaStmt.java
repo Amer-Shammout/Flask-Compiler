@@ -6,7 +6,7 @@ public abstract class JinjaStmt extends JinjaNode {
 
     // TODO(Ghalia): Add SourceRange to constructor and store it via ASTNode.
 
-    public JinjaStmt(String nodeName, int lineNumber) {
-        super(nodeName, lineNumber);
+    public JinjaStmt(String nodeName, AST.SourceRange sourceRange) {
+        super(nodeName, sourceRange);
     }
 }

@@ -2,7 +2,6 @@ package AST.template.jinja.expr;
 
 import AST.ASTNode;
 
-import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
@@ -14,8 +13,8 @@ public class JinjaBinaryExpr extends JinjaExpr {
     private final String op;
     private final JinjaExpr right;
 
-    public JinjaBinaryExpr(JinjaExpr left, String op, JinjaExpr right, int lineNumber) {
-        super("JinjaBinaryExpr", lineNumber);
+    public JinjaBinaryExpr(JinjaExpr left, String op, JinjaExpr right, AST.SourceRange sourceRange) {
+        super("JinjaBinaryExpr", sourceRange);
         this.left = left;
         this.op = op;
         this.right = right;
@@ -42,7 +41,7 @@ public class JinjaBinaryExpr extends JinjaExpr {
     // TODO(Ghalia): Modify toString for all AST nodes.
     @Override
     public String toString() {
-        return "JinjaBinary \"" + op + "\" (line " + lineNumber + ")";
+        return "JinjaBinary \"" + op + "\" " + formatLocation();
     }
 
     @Override

@@ -6,8 +6,8 @@ public class JinjaIncludeStmt extends JinjaStmt {
 
     private final String templateName;
 
-    public JinjaIncludeStmt(String templateName, int lineNumber) {
-        super("JinjaIncludeStmt", lineNumber);
+    public JinjaIncludeStmt(String templateName, AST.SourceRange sourceRange) {
+        super("JinjaIncludeStmt", sourceRange);
         this.templateName = templateName;
     }
 
@@ -19,6 +19,6 @@ public class JinjaIncludeStmt extends JinjaStmt {
     // TODO(Ghalia): Modify toString for all AST nodes.
     @Override
     public String toString() {
-        return "JinjaInclude \"" + templateName + "\" (line " + lineNumber + ")";
+        return "JinjaInclude \"" + templateName + "\" " + formatLocation();
     }
 }

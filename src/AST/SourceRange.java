@@ -17,4 +17,9 @@ public class SourceRange {
     public SourcePosition getEnd() {
         return end;
     }
+
+    @Override
+    public String toString() {
+        return start + "-" + end;
+    }
 }

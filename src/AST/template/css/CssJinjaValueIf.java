@@ -17,8 +17,8 @@ public class CssJinjaValueIf extends CssValuePart {
     public CssJinjaValueIf(JinjaExpr condition,
                            CssValue thenValue,
                            CssValue elseValue,
-                           int lineNumber) {
-        super("CssJinjaValueIf", lineNumber);
+                           AST.SourceRange sourceRange) {
+        super("CssJinjaValueIf", sourceRange);
         this.condition = condition;
         this.thenValue = thenValue;
         this.elseValue = elseValue;
@@ -51,6 +51,6 @@ public class CssJinjaValueIf extends CssValuePart {
     // TODO(Ghalia): Modify toString for all AST nodes.
     @Override
     public String toString() {
-        return "CssJinjaValueIf (line " + lineNumber + ")";
+        return "CssJinjaValueIf " + formatLocation();
     }
 }

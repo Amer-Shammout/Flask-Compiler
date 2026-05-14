@@ -8,8 +8,8 @@ public class CssJinjaExpressionValue extends CssValuePart {
 
     private final JinjaExpr expr;
 
-    public CssJinjaExpressionValue(JinjaExpr expr, int lineNumber) {
-        super("CssJinjaExpressionValue", lineNumber);
+    public CssJinjaExpressionValue(JinjaExpr expr, AST.SourceRange sourceRange) {
+        super("CssJinjaExpressionValue", sourceRange);
         this.expr = expr;
     }
 
@@ -21,6 +21,6 @@ public class CssJinjaExpressionValue extends CssValuePart {
     // TODO(Ghalia): Modify toString for all AST nodes.
     @Override
     public String toString() {
-        return "CssJinjaExpressionValue(" + expr + ") (line " + getLineNumber() + ")";
+        return "CssJinjaExpressionValue(" + expr + ") " + formatLocation();
     }
 }

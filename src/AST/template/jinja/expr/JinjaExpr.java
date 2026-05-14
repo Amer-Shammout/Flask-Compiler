@@ -10,8 +10,8 @@ public abstract class JinjaExpr extends JinjaNode {
 
     // TODO(Ghalia): Add SourceRange to constructor and store it via ASTNode.
 
-    public JinjaExpr(String nodeName, int lineNumber) {
-        super(nodeName, lineNumber);
+    public JinjaExpr(String nodeName, AST.SourceRange sourceRange) {
+        super(nodeName, sourceRange);
     }
     public Set<String> getVariables() {
         Set<String> vars = new HashSet<>();

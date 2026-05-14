@@ -1,5 +1,6 @@
 package AST.template.html;
 
+import AST.SourceRange;
 import java.util.List;
 
 public class HtmlVoidElement extends HtmlElement {
@@ -8,7 +9,7 @@ public class HtmlVoidElement extends HtmlElement {
 
     public HtmlVoidElement(String tagName,
                            List<HtmlAttribute> attributes,
-                           int lineNumber) {
-        super("HtmlVoidElement", tagName, attributes, lineNumber);
+                           SourceRange sourceRange) {
+        super("HtmlVoidElement", tagName, attributes, sourceRange);
     }
 }

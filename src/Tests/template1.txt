@@ -8,9 +8,9 @@
 
     <p>Hello, {{ user.name }}!</p>
 
-    <a href={{ url }}>Link</a>
+    <a href="{{ url }}">Link</a>
 
-    <div class={{ class_name }}>Box</div>
+    <div class="{{ class_name }}">Box</div>
 
     <p>Price: {{ "%.2f"|format(price) }}</p>
 

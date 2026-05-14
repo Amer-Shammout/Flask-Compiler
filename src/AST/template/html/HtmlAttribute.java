@@ -1,6 +1,6 @@
 package AST.template.html;
 
-import AST.ASTNode;
+import AST.SourceRange;
 
 public class HtmlAttribute extends HtmlNode {
 
@@ -9,8 +9,8 @@ public class HtmlAttribute extends HtmlNode {
     private final String name;
     private final String value;
 
-    public HtmlAttribute(String name, String value, int lineNumber) {
-        super("HtmlAttribute", lineNumber);
+    public HtmlAttribute(String name, String value, SourceRange sourceRange) {
+        super("HtmlAttribute", sourceRange);
         this.name = name;
         this.value = value;
     }
@@ -23,7 +23,7 @@ public class HtmlAttribute extends HtmlNode {
     // TODO(Ghalia): Modify toString for all AST nodes.
     @Override
     public String toString() {
-        return "HtmlAttribute " + name + "=\"" + value + "\" (line " + lineNumber + ")";
+        return "HtmlAttribute " + name + "=\"" + value + "\" " + formatLocation();
     }
 
 

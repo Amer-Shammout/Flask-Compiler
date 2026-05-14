@@ -3,7 +3,6 @@ package AST.template.jinja.expr;
 import AST.ASTNode;
 
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
@@ -15,8 +14,8 @@ public class JinjaFilterExpr extends JinjaExpr {
     private final String filterName;
     private final List<JinjaExpr> args;
 
-    public JinjaFilterExpr(JinjaExpr base, String filterName, List<JinjaExpr> args, int lineNumber) {
-        super("JinjaFilterExpr", lineNumber);
+    public JinjaFilterExpr(JinjaExpr base, String filterName, List<JinjaExpr> args, AST.SourceRange sourceRange) {
+        super("JinjaFilterExpr", sourceRange);
         this.base = base;
         this.filterName = filterName;
         this.args = args;
@@ -46,7 +45,7 @@ public class JinjaFilterExpr extends JinjaExpr {
     // TODO(Ghalia): Modify toString for all AST nodes.
     @Override
     public String toString() {
-        return "JinjaFilter " + filterName + " (line " + lineNumber + ")";
+        return "JinjaFilter " + filterName + " " + formatLocation();
     }
     @Override
     public Set<String> getVariables() {

@@ -12,8 +12,8 @@ public class JinjaUnaryExpr extends JinjaExpr {
     private final String op;      // e.g. "not"
     private final JinjaExpr expr;
 
-    public JinjaUnaryExpr(String op, JinjaExpr expr, int lineNumber) {
-        super("JinjaUnaryExpr", lineNumber);
+    public JinjaUnaryExpr(String op, JinjaExpr expr, AST.SourceRange sourceRange) {
+        super("JinjaUnaryExpr", sourceRange);
         this.op = op;
         this.expr = expr;
     }
@@ -35,7 +35,7 @@ public class JinjaUnaryExpr extends JinjaExpr {
     // TODO(Ghalia): Modify toString for all AST nodes.
     @Override
     public String toString() {
-        return "JinjaUnary \"" + op + "\" (line " + lineNumber + ")";
+        return "JinjaUnary \"" + op + "\" " + formatLocation();
     }
     @Override
     public Set<String> getVariables() {

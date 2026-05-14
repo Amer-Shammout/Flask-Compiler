@@ -1,6 +1,7 @@
 package AST.template.css;
 
 import AST.ASTNode;
+import AST.SourceRange;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -11,8 +12,8 @@ public class CssStylesheet extends CssNode {
 
     private final List<ASTNode> contents; // ✔ can be CssNode or JinjaStatement
 
-    public CssStylesheet(List<ASTNode> contents, int line) {
-        super("CssStylesheet", line);
+    public CssStylesheet(List<ASTNode> contents, SourceRange sourceRange) {
+        super("CssStylesheet", sourceRange);
         this.contents = contents;
     }
 
@@ -29,6 +30,6 @@ public class CssStylesheet extends CssNode {
     // TODO(Ghalia): Modify toString for all AST nodes.
     @Override
     public String toString() {
-        return "CssStylesheet (line " + lineNumber + ")";
+        return "CssStylesheet " + formatLocation();
     }
 }

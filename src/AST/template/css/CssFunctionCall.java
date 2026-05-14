@@ -11,8 +11,8 @@ public class CssFunctionCall extends CssValuePart {
     private final String name;
     private final CssValue args; // may be null
 
-    public CssFunctionCall(String name, CssValue args, int lineNumber) {
-        super("CssFunctionCall", lineNumber);
+    public CssFunctionCall(String name, CssValue args, AST.SourceRange sourceRange) {
+        super("CssFunctionCall", sourceRange);
         this.name = name;
         this.args = args;
     }
@@ -34,6 +34,6 @@ public class CssFunctionCall extends CssValuePart {
     // TODO(Ghalia): Modify toString for all AST nodes.
     @Override
     public String toString() {
-        return "CssFunctionCall " + name + " (line " + lineNumber + ")";
+        return "CssFunctionCall " + name + " " + formatLocation();
     }
 }

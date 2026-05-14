@@ -12,8 +12,8 @@ public class CssRule extends CssNode {
     private final CssSelector selector;
     private final List<CssNode> blockContents;
 
-    public CssRule(CssSelector selector, List<CssNode> blockContents, int lineNumber) {
-        super("CssRule", lineNumber);
+    public CssRule(CssSelector selector, List<CssNode> blockContents, AST.SourceRange sourceRange) {
+        super("CssRule", sourceRange);
         this.selector = selector;
         this.blockContents = blockContents;
     }
@@ -38,6 +38,6 @@ public class CssRule extends CssNode {
     // TODO(Ghalia): Modify toString for all AST nodes.
     @Override
     public String toString() {
-        return "CssRule (line " + lineNumber + ")";
+        return "CssRule " + formatLocation();
     }
 }

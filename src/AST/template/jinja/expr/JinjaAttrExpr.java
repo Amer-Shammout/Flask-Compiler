@@ -14,8 +14,8 @@ public class JinjaAttrExpr extends JinjaExpr {
 
     private final String attribute;
 
-    public JinjaAttrExpr(JinjaExpr target, String attribute, int lineNumber) {
-        super("JinjaAttrExpr", lineNumber);
+    public JinjaAttrExpr(JinjaExpr target, String attribute, AST.SourceRange sourceRange) {
+        super("JinjaAttrExpr", sourceRange);
         this.target = target;
         this.attribute = attribute;
     }
@@ -42,6 +42,6 @@ public class JinjaAttrExpr extends JinjaExpr {
     // TODO(Ghalia): Modify toString for all AST nodes.
     @Override
     public String toString() {
-        return "JinjaAttr ." + attribute + " (line " + lineNumber + ")";
+        return "JinjaAttr ." + attribute + " " + formatLocation();
     }
 }

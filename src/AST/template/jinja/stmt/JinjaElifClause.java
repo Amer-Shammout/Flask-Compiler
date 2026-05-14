@@ -2,7 +2,6 @@ package AST.template.jinja.stmt;
 
 import AST.ASTNode;
 import AST.template.jinja.JinjaBody;
-import AST.template.jinja.JinjaNode;
 import AST.template.jinja.expr.JinjaExpr;
 
 import java.util.List;
@@ -14,8 +13,8 @@ public class JinjaElifClause extends JinjaStmt {
     private final JinjaExpr condition;
     private final JinjaBody body;
 
-    public JinjaElifClause(JinjaExpr condition, JinjaBody body, int lineNumber) {
-        super("JinjaElifClause", lineNumber);
+    public JinjaElifClause(JinjaExpr condition, JinjaBody body, AST.SourceRange sourceRange) {
+        super("JinjaElifClause", sourceRange);
         this.condition = condition;
         this.body = body;
     }
@@ -37,6 +36,6 @@ public class JinjaElifClause extends JinjaStmt {
     // TODO(Ghalia): Modify toString for all AST nodes.
     @Override
     public String toString() {
-        return "JinjaElifClause (line " + lineNumber + ")";
+        return "JinjaElifClause " + formatLocation();
     }
 }

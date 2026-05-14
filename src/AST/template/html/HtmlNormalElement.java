@@ -13,9 +13,9 @@ public class HtmlNormalElement extends HtmlElement {
     public HtmlNormalElement(String tagName,
                              List<HtmlAttribute> attributes,
                              List<ASTNode> children,
-                             int lineNumber) {
+                             AST.SourceRange sourceRange) {
 
-        super("HtmlNormalElement", tagName, attributes, lineNumber);
+        super("HtmlNormalElement", tagName, attributes, sourceRange);
         this.children = children;
     }
 

@@ -8,8 +8,8 @@ public class JinjaStringLiteralExpr extends JinjaExpr {
 
     private final String rawText;
 
-    public JinjaStringLiteralExpr(String rawText, int lineNumber) {
-        super("JinjaStringLiteralExpr", lineNumber);
+    public JinjaStringLiteralExpr(String rawText, AST.SourceRange sourceRange) {
+        super("JinjaStringLiteralExpr", sourceRange);
         this.rawText = rawText;
     }
 
@@ -21,7 +21,7 @@ public class JinjaStringLiteralExpr extends JinjaExpr {
     // TODO(Ghalia): Modify toString for all AST nodes.
     @Override
     public String toString() {
-        return "JinjaString " + rawText + " (line " + lineNumber + ")";
+        return "JinjaString " + rawText + " " + formatLocation();
     }
     @Override
     public Set<String> getVariables() {

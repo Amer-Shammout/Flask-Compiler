@@ -1,5 +1,6 @@
 package AST.template.html;
 
+import AST.SourceRange;
 import java.util.List;
 
 public class HtmlSelfClosingElement extends HtmlElement {
@@ -8,7 +9,7 @@ public class HtmlSelfClosingElement extends HtmlElement {
 
     public HtmlSelfClosingElement(String tagName,
                                   List<HtmlAttribute> attributes,
-                                  int lineNumber) {
-        super("HtmlSelfClosingElement", tagName, attributes, lineNumber);
+                                  SourceRange sourceRange) {
+        super("HtmlSelfClosingElement", tagName, attributes, sourceRange);
     }
 }

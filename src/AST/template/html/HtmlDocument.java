@@ -1,6 +1,7 @@
 package AST.template.html;
 
 import AST.ASTNode;
+import AST.SourceRange;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -10,8 +11,8 @@ public class HtmlDocument extends HtmlNode {
 
     private final List<ASTNode> children;
 
-    public HtmlDocument(List<ASTNode> children, int lineNumber) {
-        super("HtmlDocument", lineNumber);
+    public HtmlDocument(List<ASTNode> children, SourceRange sourceRange) {
+        super("HtmlDocument", sourceRange);
         this.children = children;
     }
 
@@ -27,6 +28,6 @@ public class HtmlDocument extends HtmlNode {
     // TODO(Ghalia): Modify toString for all AST nodes.
     @Override
     public String toString() {
-        return "HtmlDocument (line " + lineNumber + ")";
+        return "HtmlDocument " + formatLocation();
     }
 }

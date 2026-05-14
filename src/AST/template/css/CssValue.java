@@ -1,6 +1,7 @@
 package AST.template.css;
 
 import AST.ASTNode;
+import AST.SourceRange;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -10,8 +11,8 @@ public class CssValue extends CssNode {
 
     private final List<CssValuePart> parts;
 
-    public CssValue(List<CssValuePart> parts, int line) {
-        super("CssValue",line);
+    public CssValue(List<CssValuePart> parts, SourceRange sourceRange) {
+        super("CssValue", sourceRange);
         this.parts = parts;
     }
 
@@ -28,6 +29,6 @@ public class CssValue extends CssNode {
     // TODO(Ghalia): Modify toString for all AST nodes.
     @Override
     public String toString() {
-        return "CssValue (line " + lineNumber + ")";
+        return "CssValue " + formatLocation();
     }
 }
