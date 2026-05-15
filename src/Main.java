@@ -24,8 +24,8 @@ public class Main {
 
     // Default input locations. Change these in one place when switching test data.
     private static final Path DEFAULT_FLASK_SOURCE = Paths.get("src/Tests/FinalTests/app.py").toAbsolutePath().normalize();
-    private static final Path DEFAULT_TEMPLATE_SOURCE = Paths.get("src/Tests/template1.txt").toAbsolutePath().normalize();
-    private static final Path DEFAULT_TEMPLATE_DIRECTORY = Paths.get("src/Tests").toAbsolutePath().normalize();
+    private static final Path DEFAULT_TEMPLATE_SOURCE = Paths.get("src/Tests/Template/template1.html").toAbsolutePath().normalize();
+    private static final Path DEFAULT_TEMPLATE_DIRECTORY = Paths.get("src/Tests/Template").toAbsolutePath().normalize();
     private static final String FLASK_AST_OUTPUT = "ast-flask.dot";
     private static final String TEMPLATE_AST_OUTPUT = "ast-template.dot";
 
