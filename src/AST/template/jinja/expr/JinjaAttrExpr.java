@@ -7,6 +7,8 @@ import java.util.Set;
 
 public class JinjaAttrExpr extends JinjaExpr {
 
+    // TODO(Ghalia): Add SourceRange to constructor and store it via ASTNode.
+
     private final JinjaExpr target;
 
 
@@ -16,6 +18,15 @@ public class JinjaAttrExpr extends JinjaExpr {
         super("JinjaAttrExpr", lineNumber);
         this.target = target;
         this.attribute = attribute;
+    }
+
+    // TODO(Ghalia): Ensure every AST node exposes getters for its fields.
+    public JinjaExpr getTarget() {
+        return target;
+    }
+
+    public String getAttribute() {
+        return attribute;
     }
 
     @Override
@@ -28,6 +39,7 @@ public class JinjaAttrExpr extends JinjaExpr {
     }
 
 
+    // TODO(Ghalia): Modify toString for all AST nodes.
     @Override
     public String toString() {
         return "JinjaAttr ." + attribute + " (line " + lineNumber + ")";

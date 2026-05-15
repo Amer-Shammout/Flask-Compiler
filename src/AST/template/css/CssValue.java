@@ -6,6 +6,8 @@ import java.util.List;
 
 public class CssValue extends CssNode {
 
+    // TODO(Ghalia): Add SourceRange to constructor and store it via ASTNode.
+
     private final List<CssValuePart> parts;
 
     public CssValue(List<CssValuePart> parts, int line) {
@@ -13,6 +15,7 @@ public class CssValue extends CssNode {
         this.parts = parts;
     }
 
+    // TODO(Ghalia): Ensure every AST node exposes getters for its fields.
     public List<CssValuePart> getParts() {
         return parts;
     }
@@ -22,6 +25,7 @@ public class CssValue extends CssNode {
         return new ArrayList<>(parts);
     }
 
+    // TODO(Ghalia): Modify toString for all AST nodes.
     @Override
     public String toString() {
         return "CssValue (line " + lineNumber + ")";

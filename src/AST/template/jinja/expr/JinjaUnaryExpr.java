@@ -7,6 +7,8 @@ import java.util.Set;
 
 public class JinjaUnaryExpr extends JinjaExpr {
 
+    // TODO(Ghalia): Add SourceRange to constructor and store it via ASTNode.
+
     private final String op;      // e.g. "not"
     private final JinjaExpr expr;
 
@@ -16,6 +18,7 @@ public class JinjaUnaryExpr extends JinjaExpr {
         this.expr = expr;
     }
 
+    // TODO(Ghalia): Ensure every AST node exposes getters for its fields.
     public String getOp() {
         return op;
     }
@@ -29,6 +32,7 @@ public class JinjaUnaryExpr extends JinjaExpr {
         return List.of(expr);
     }
 
+    // TODO(Ghalia): Modify toString for all AST nodes.
     @Override
     public String toString() {
         return "JinjaUnary \"" + op + "\" (line " + lineNumber + ")";

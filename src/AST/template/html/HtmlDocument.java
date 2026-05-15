@@ -6,6 +6,8 @@ import java.util.List;
 
 public class HtmlDocument extends HtmlNode {
 
+    // TODO(Ghalia): Add SourceRange to constructor and store it via ASTNode.
+
     private final List<ASTNode> children;
 
     public HtmlDocument(List<ASTNode> children, int lineNumber) {
@@ -22,6 +24,7 @@ public class HtmlDocument extends HtmlNode {
         return new ArrayList<>(children);
     }
 
+    // TODO(Ghalia): Modify toString for all AST nodes.
     @Override
     public String toString() {
         return "HtmlDocument (line " + lineNumber + ")";

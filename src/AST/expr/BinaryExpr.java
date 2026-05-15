@@ -11,6 +11,7 @@ public class BinaryExpr extends Expression {
     private String operator;
     private Expression right;
 
+        // TODO(George): Add SourceRange to constructor and store it via ASTNode.
     public BinaryExpr(Expression left, String operator, Expression right, int lineNumber) {
         super("BinaryExpr", lineNumber);
         this.left = left;
@@ -38,6 +39,7 @@ public class BinaryExpr extends Expression {
         return children;
     }
 
+    // TODO(George): Modify toString for all AST nodes.
     @Override
     public String toString() {
         return "BinaryExpr{operator='" + operator + "'} (line " + lineNumber + ")";

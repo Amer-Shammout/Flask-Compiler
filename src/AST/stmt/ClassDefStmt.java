@@ -18,6 +18,7 @@ public class ClassDefStmt extends Statement {
         this.name = name;
         this.parent = parent;
         this.body = body;
+        // TODO(George): Add SourceRange to constructor and store it via ASTNode.
     }
     public String getName() {
         return name;
@@ -31,11 +32,17 @@ public class ClassDefStmt extends Statement {
         return body;
     }
 
+    // TODO(George): Ensure every AST node exposes getters for its fields.
+    public String getClassName() {
+        return name;
+    }
+
     @Override
     public List<ASTNode> getChildren() {
         return List.of(body);
     }
 
+    // TODO(George): Modify toString for all AST nodes.
     @Override
     public String toString() {
         return "ClassDefStmt(" + name + ") (line " + lineNumber + ")";

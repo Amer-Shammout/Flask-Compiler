@@ -9,9 +9,15 @@ public class InlineSuite extends Suite {
 
     private Statement statement;
 
+        // TODO(George): Add SourceRange to constructor and store it via ASTNode.
     public InlineSuite(Statement statement, int lineNumber) {
         super("InlineSuite", lineNumber);
         this.statement = statement;
+    }
+
+    // TODO(George): Ensure every AST node exposes getters for its fields.
+    public Statement getStatement() {
+        return statement;
     }
 
     @Override

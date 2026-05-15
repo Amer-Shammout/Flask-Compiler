@@ -6,6 +6,8 @@ import java.util.List;
 
 public class HtmlNormalElement extends HtmlElement {
 
+    // TODO(Ghalia): Add SourceRange to constructor and store it via ASTNode.
+
     private final List<ASTNode> children;
 
     public HtmlNormalElement(String tagName,
@@ -23,5 +25,10 @@ public class HtmlNormalElement extends HtmlElement {
         list.addAll(attributes);
         list.addAll(children);
         return list;
+    }
+
+    // TODO(Ghalia): Ensure every AST node exposes getters for its fields.
+    public List<ASTNode> getChildNodes() {
+        return children;
     }
 }

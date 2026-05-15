@@ -14,6 +14,8 @@ import java.util.List;
 
 public class FlaskVisitor extends FlaskParserBaseVisitor<ASTNode> {
 
+    // TODO(George): Build SourceRange from ctx.getStart()/getStop() and pass it into all AST nodes.
+
     @Override
     public ASTNode visitProg(FlaskParser.ProgContext ctx) {
         List<Statement> list = new ArrayList<>();

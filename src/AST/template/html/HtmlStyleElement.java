@@ -10,6 +10,7 @@ public class HtmlStyleElement extends HtmlElement {
 
     private final CssStylesheet stylesheet;
 
+    // TODO(Ghalia): Add SourceRange to constructor and store it via ASTNode.
     public HtmlStyleElement(List<HtmlAttribute> attributes,
                             CssStylesheet stylesheet,
                             int lineNumber) {
@@ -24,6 +25,7 @@ public class HtmlStyleElement extends HtmlElement {
         return nodes;
     }
 
+    // TODO(Ghalia): Modify toString for all AST nodes.
     @Override
     public String toString() {
         return "HtmlStyleElement <style> (line " + lineNumber + ")";

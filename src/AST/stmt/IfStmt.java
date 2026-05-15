@@ -9,6 +9,8 @@ import java.util.List;
 
 public class IfStmt extends Statement {
 
+    // TODO(George): Add SourceRange to constructor and store it via ASTNode.
+
     private Expression condition;
     private Suite thenSuite;
     private List<Expression> elifConditions;
@@ -27,6 +29,27 @@ public class IfStmt extends Statement {
         this.elifConditions = elifConditions;
         this.elifSuites = elifSuites;
         this.elseSuite = elseSuite;
+    }
+
+    // TODO(George): Ensure every AST node exposes getters for its fields.
+    public Expression getCondition() {
+        return condition;
+    }
+
+    public Suite getThenSuite() {
+        return thenSuite;
+    }
+
+    public List<Expression> getElifConditions() {
+        return elifConditions;
+    }
+
+    public List<Suite> getElifSuites() {
+        return elifSuites;
+    }
+
+    public Suite getElseSuite() {
+        return elseSuite;
     }
 
     @Override
@@ -48,6 +71,7 @@ public class IfStmt extends Statement {
         return children;
     }
 
+    // TODO(George): Modify toString for all AST nodes.
     @Override
     public String toString() {
         return "IfStmt (line " + lineNumber + ")";

@@ -10,6 +10,7 @@ public class CallExpr extends Expression {
     private final Expression function;
     private final List<Expression> arguments;
 
+    // TODO(George): Add SourceRange to constructor and store it via ASTNode.
     public CallExpr(Expression function, List<Expression> arguments, int line) {
         super("CallExpr", line);
         this.function = function;
@@ -26,6 +27,8 @@ public class CallExpr extends Expression {
         ch.addAll(arguments);
         return ch;
     }
+
+    // TODO(George): Modify toString for all AST nodes.
     @Override
     public String toString() {
         return "CallExpr (line " + lineNumber + ")";

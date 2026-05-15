@@ -16,6 +16,7 @@ public class FunctionDefStmt extends Statement {
         this.name = name;
         this.parameters = parameters;
         this.body = body;
+            // TODO(George): Add SourceRange to constructor and store it via ASTNode.
     }
     public String getName() {
         return name;
@@ -25,12 +26,18 @@ public class FunctionDefStmt extends Statement {
         return parameters;
     }
 
+    // TODO(George): Ensure every AST node exposes getters for its fields.
+    public Suite getBody() {
+        return body;
+    }
+
 
     @Override
     public List<ASTNode> getChildren() {
         return List.of(body);
     }
 
+    // TODO(George): Modify toString for all AST nodes.
     @Override
     public String toString() {
         return "FunctionDefStmt(" + name + ") (line " + lineNumber + ")";

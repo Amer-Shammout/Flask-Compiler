@@ -17,6 +17,8 @@ import org.antlr.v4.runtime.tree.TerminalNode;
 
 public class TemplateVisitor extends TemplateParserBaseVisitor<ASTNode> {
 
+    // TODO(Ghalia): Wire SourceRange into Template AST nodes using ctx start/stop.
+
     @Override
     public ASTNode visitTemplateRoot(TemplateParser.TemplateRootContext ctx) {
         return visit(ctx.template_content());

@@ -1,53 +1,34 @@
 package SymbolTable;
 
-import java.util.List;
+/**
+ * Simple symbol descriptor used by symbol tables.
+ * Laila: fill fields as needed. Keep this as a plain data holder.
+ */
+public final class Symbol {
 
-public class Symbol {
-
-    public enum SymbolType {
-        VARIABLE,
-        FUNCTION,
-        PARAMETER
-    }
-
+    // we can add later inferredType, range, mutable
     private final String name;
-    private final SymbolType type;
-    private final int lineNumber;
-    private final List<String> parameters;
+    private final SymbolKind kind; // semantic classification (enum)
+    private final String origin; // optional: where this symbol was declared (file/template)
 
-
-    public Symbol(String name, SymbolType type, int lineNumber) {
-        this.name = name;
-        this.type = type;
-        this.lineNumber = lineNumber;
-        this.parameters = null;
+    public Symbol(String name, SymbolKind kind) {
+        this(name, kind, null);
     }
 
-
-    public Symbol(String name, int lineNumber, List<String> parameters) {
+    public Symbol(String name, SymbolKind kind, String origin) {
         this.name = name;
-        this.type = SymbolType.FUNCTION;
-        this.lineNumber = lineNumber;
-        this.parameters = parameters;
+        this.kind = kind;
+        this.origin = origin;
     }
 
-
+    /** Return the symbol name. */
     public String getName() { return name; }
-    public SymbolType getType() { return type; }
-    public int getLineNumber() { return lineNumber; }
-    public List<String> getParameters() { return parameters; }
 
-    @Override
-    public String toString() {
-        switch (type) {
-            case VARIABLE:
-                return "Variable: " + name + " (line " + lineNumber + ")";
-            case PARAMETER:
-                return "Parameter: " + name + " (line " + lineNumber + ")";
-            case FUNCTION:
-                return "Function: " + name + " (line " + lineNumber + "), params=" + parameters;
-            default:
-                return name;
-        }
-    }
+    /** Return the symbol kind (semantic classification). */
+    public SymbolKind getKind() { return kind; }
+
+    /**
+     * Optional origin information (source file, template name, etc.).
+     */
+    public String getOrigin() { return origin; }
 }

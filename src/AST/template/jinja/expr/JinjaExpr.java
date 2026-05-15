@@ -8,6 +8,8 @@ import java.util.Set;
 
 public abstract class JinjaExpr extends JinjaNode {
 
+    // TODO(Ghalia): Add SourceRange to constructor and store it via ASTNode.
+
     public JinjaExpr(String nodeName, int lineNumber) {
         super(nodeName, lineNumber);
     }

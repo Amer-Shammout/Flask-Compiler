@@ -9,6 +9,8 @@ import java.util.Set;
 
 public class JinjaFilterExpr extends JinjaExpr {
 
+    // TODO(Ghalia): Add SourceRange to constructor and store it via ASTNode.
+
     private final JinjaExpr base;
     private final String filterName;
     private final List<JinjaExpr> args;
@@ -20,6 +22,7 @@ public class JinjaFilterExpr extends JinjaExpr {
         this.args = args;
     }
 
+    // TODO(Ghalia): Ensure every AST node exposes getters for its fields.
     public JinjaExpr getBase() {
         return base;
     }
@@ -40,6 +43,7 @@ public class JinjaFilterExpr extends JinjaExpr {
         return list;
     }
 
+    // TODO(Ghalia): Modify toString for all AST nodes.
     @Override
     public String toString() {
         return "JinjaFilter " + filterName + " (line " + lineNumber + ")";

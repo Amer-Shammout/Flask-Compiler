@@ -9,6 +9,8 @@ import java.util.Set;
 
 public class JinjaCallExpr extends JinjaExpr {
 
+    // TODO(Ghalia): Add SourceRange to constructor and store it via ASTNode.
+
     private final JinjaExpr callee;
     private final List<JinjaExpr> args;
 
@@ -18,6 +20,7 @@ public class JinjaCallExpr extends JinjaExpr {
         this.args = args;
     }
 
+    // TODO(Ghalia): Ensure every AST node exposes getters for its fields.
     public JinjaExpr getCallee() {
         return callee;
     }
@@ -34,6 +37,7 @@ public class JinjaCallExpr extends JinjaExpr {
         return list;
     }
 
+    // TODO(Ghalia): Modify toString for all AST nodes.
     @Override
     public String toString() {
         return "JinjaCall (line " + lineNumber + ")";

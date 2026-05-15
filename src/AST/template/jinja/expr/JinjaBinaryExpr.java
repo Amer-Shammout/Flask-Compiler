@@ -8,6 +8,8 @@ import java.util.Set;
 
 public class JinjaBinaryExpr extends JinjaExpr {
 
+    // TODO(Ghalia): Add SourceRange to constructor and store it via ASTNode.    
+
     private final JinjaExpr left;
     private final String op;
     private final JinjaExpr right;
@@ -19,6 +21,7 @@ public class JinjaBinaryExpr extends JinjaExpr {
         this.right = right;
     }
 
+    // TODO(Ghalia): Ensure every AST node exposes getters for its fields.
     public JinjaExpr getLeft() {
         return left;
     }
@@ -36,6 +39,7 @@ public class JinjaBinaryExpr extends JinjaExpr {
         return List.of(left, right);
     }
 
+    // TODO(Ghalia): Modify toString for all AST nodes.
     @Override
     public String toString() {
         return "JinjaBinary \"" + op + "\" (line " + lineNumber + ")";
