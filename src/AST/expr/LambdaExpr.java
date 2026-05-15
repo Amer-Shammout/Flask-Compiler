@@ -1,17 +1,16 @@
 package AST.expr;
 
 import AST.ASTNode;
+import AST.SourceRange;
 import java.util.List;
 
 public class LambdaExpr extends Expression {
-
-    // TODO(George): Add SourceRange to constructor and store it via ASTNode.
-
     private List<String> params;
     private Expression body;
 
-    public LambdaExpr(List<String> params, Expression body, int line) {
-        super("LambdaExpr", line);
+    // TODO(George): Add SourceRange to constructor and store it via ASTNode.
+    public LambdaExpr(List<String> params, Expression body, SourceRange sourceRange) {
+        super("LambdaExpr", sourceRange);
         this.params = params;
         this.body = body;
     }
@@ -21,6 +20,7 @@ public class LambdaExpr extends Expression {
         return params;
     }
 
+    // TODO(George): Ensure every AST node exposes getters for its fields.
     public Expression getBody() {
         return body;
     }
@@ -33,7 +33,7 @@ public class LambdaExpr extends Expression {
     // TODO(George): Modify toString for all AST nodes.
     @Override
     public String toString() {
-        return "LambdaExpr(params=" + params + ") (line " + lineNumber + ")";
+        return "LambdaExpr(params=" + params + ") " + formatLocation();
     }
 
 }

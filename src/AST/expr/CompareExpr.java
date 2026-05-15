@@ -1,6 +1,7 @@
 package AST.expr;
 
 import AST.ASTNode;
+import AST.SourceRange;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -11,17 +12,17 @@ public class CompareExpr extends Expression {
     private List<String> operators;
     private List<Expression> rights;
 
+    // TODO(George): Add SourceRange to constructor and store it via ASTNode.
     public CompareExpr(
             Expression left,
             List<String> operators,
             List<Expression> rights,
-            int lineNumber
+            SourceRange sourceRange
     ) {
-        super("CompareExpr", lineNumber);
+        super("CompareExpr", sourceRange);
         this.left = left;
         this.operators = operators;
         this.rights = rights;
-        // TODO(George): Add SourceRange to constructor and store it via ASTNode.
     }
 
     public Expression getLeft() {
@@ -32,6 +33,7 @@ public class CompareExpr extends Expression {
         return operators;
     }
 
+    // TODO(George): Ensure every AST node exposes getters for its fields.
     public List<Expression> getRights() {
         return rights;
     }
@@ -47,7 +49,7 @@ public class CompareExpr extends Expression {
     // TODO(George): Modify toString for all AST nodes.
     @Override
     public String toString() {
-        return "CompareExpr{operators=" + operators + "} (line " + lineNumber + ")";
+        return "CompareExpr{operators=" + operators + "} " + formatLocation();
     }
 
 }

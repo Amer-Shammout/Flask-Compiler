@@ -2,14 +2,15 @@ package AST.expr;
 
 import java.util.List;
 import AST.ASTNode;
+import AST.SourceRange;
 
 public class AttributeExpr extends Expression {
-    // TODO(George): Add SourceRange to constructor and store it via ASTNode.
     private final Expression base;
     private final String attribute;
 
-    public AttributeExpr(Expression base, String attribute, int line) {
-        super("AttributeExpr", line);
+    // TODO(George): Add SourceRange to constructor and store it via ASTNode.
+    public AttributeExpr(Expression base, String attribute, SourceRange sourceRange) {
+        super("AttributeExpr", sourceRange);
         this.base = base;
         this.attribute = attribute;
     }
@@ -31,7 +32,7 @@ public class AttributeExpr extends Expression {
     // TODO(George): Modify toString for all AST nodes.
     @Override
     public String toString() {
-        return "AttributeExpr(." + attribute + ") (line " + lineNumber + ")";
+        return "AttributeExpr(." + attribute + ") " + formatLocation();
     }
 
 }

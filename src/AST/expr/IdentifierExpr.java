@@ -1,20 +1,23 @@
 package AST.expr;
 
+import AST.SourceRange;
+
 public class IdentifierExpr extends Expression {
-    // TODO(George): Add SourceRange to constructor and store it via ASTNode.
     private String name;
 
-    public IdentifierExpr(String name, int line) {
-        super("IdentifierExpr", line);
+    // TODO(George): Add SourceRange to constructor and store it via ASTNode.
+    public IdentifierExpr(String name, SourceRange sourceRange) {
+        super("IdentifierExpr", sourceRange);
         this.name = name;
     }
 
+    // TODO(George): Ensure every AST node exposes getters for its fields.
     public String getName() { return name; }
 
     // TODO(George): Modify toString for all AST nodes.
     @Override
     public String toString() {
-        return "IdentifierExpr(\"" + name + "\") (line " + lineNumber + ")";
+        return "IdentifierExpr(\"" + name + "\") " + formatLocation();
     }
 
 }

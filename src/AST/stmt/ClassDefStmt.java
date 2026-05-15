@@ -1,6 +1,7 @@
 package AST.stmt;
 
 import AST.ASTNode;
+import AST.SourceRange;
 import AST.suite.Suite;
 
 import java.util.ArrayList;
@@ -12,14 +13,16 @@ public class ClassDefStmt extends Statement {
     private String parent; // may be null
     private Suite body;
 
+    // TODO(George): Add SourceRange to constructor and store it via ASTNode.
     public ClassDefStmt(String name, String parent,
-                        Suite body, int lineNumber) {
-        super("ClassDefStmt", lineNumber);
+                        Suite body, SourceRange sourceRange) {
+        super("ClassDefStmt", sourceRange);
         this.name = name;
         this.parent = parent;
         this.body = body;
-        // TODO(George): Add SourceRange to constructor and store it via ASTNode.
     }
+
+    // TODO(George): Ensure every AST node exposes getters for its fields.
     public String getName() {
         return name;
     }
@@ -32,6 +35,7 @@ public class ClassDefStmt extends Statement {
         return body;
     }
 
+
     // TODO(George): Ensure every AST node exposes getters for its fields.
     public String getClassName() {
         return name;
@@ -42,10 +46,11 @@ public class ClassDefStmt extends Statement {
         return List.of(body);
     }
 
+
     // TODO(George): Modify toString for all AST nodes.
     @Override
     public String toString() {
-        return "ClassDefStmt(" + name + ") (line " + lineNumber + ")";
+        return "ClassDefStmt(" + name + ") " + formatLocation();
     }
 
 }

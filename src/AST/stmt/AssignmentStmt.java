@@ -1,19 +1,18 @@
 package AST.stmt;
 
 import AST.ASTNode;
+import AST.SourceRange;
 import AST.expr.Expression;
 import java.util.List;
 
 public class AssignmentStmt extends Statement {
 
-    // TODO(George): Add SourceRange to constructor and store it via ASTNode.
-
     private final Expression target;
     private final Expression value;
 
-
-    public AssignmentStmt(Expression target, Expression value, int lineNumber) {
-        super("AssignmentStmt", lineNumber);
+    // TODO(George): Add SourceRange to constructor and store it via ASTNode.
+    public AssignmentStmt(Expression target, Expression value, SourceRange sourceRange) {
+        super("AssignmentStmt", sourceRange);
         this.target = target;
         this.value = value;
     }
@@ -33,7 +32,7 @@ public class AssignmentStmt extends Statement {
     // TODO(George): Modify toString for all AST nodes.
     @Override
     public String toString() {
-        return "AssignmentStmt (line " + lineNumber + ")";
+        return "AssignmentStmt " + formatLocation();
     }
 
 }

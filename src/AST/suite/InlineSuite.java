@@ -1,6 +1,7 @@
 package AST.suite;
 
 import AST.ASTNode;
+import AST.SourceRange;
 import AST.stmt.Statement;
 
 import java.util.List;
@@ -9,9 +10,9 @@ public class InlineSuite extends Suite {
 
     private Statement statement;
 
-        // TODO(George): Add SourceRange to constructor and store it via ASTNode.
-    public InlineSuite(Statement statement, int lineNumber) {
-        super("InlineSuite", lineNumber);
+    // TODO(George): Add SourceRange to constructor and store it via ASTNode.
+    public InlineSuite(Statement statement, SourceRange sourceRange) {
+        super("InlineSuite", sourceRange);
         this.statement = statement;
     }
 

@@ -1,6 +1,7 @@
 package AST.suite;
 
 import AST.ASTNode;
+import AST.SourceRange;
 import AST.stmt.Statement;
 
 import java.util.ArrayList;
@@ -11,8 +12,8 @@ public class BlockSuite extends Suite {
     private List<Statement> statements;
 
     // TODO(George): Add SourceRange to constructor and store it via ASTNode.
-    public BlockSuite(List<Statement> statements, int lineNumber) {
-        super("BlockSuite", lineNumber);
+    public BlockSuite(List<Statement> statements, SourceRange sourceRange) {
+        super("BlockSuite", sourceRange);
         this.statements = statements;
     }
 

@@ -1,6 +1,7 @@
 package AST.stmt;
 
 import AST.ASTNode;
+import AST.SourceRange;
 import AST.expr.Expression;
 import AST.suite.Suite;
 
@@ -9,21 +10,22 @@ import java.util.List;
 
 public class IfStmt extends Statement {
 
-    // TODO(George): Add SourceRange to constructor and store it via ASTNode.
-
     private Expression condition;
     private Suite thenSuite;
     private List<Expression> elifConditions;
     private List<Suite> elifSuites;
     private Suite elseSuite;
 
+
+
+    // TODO(George): Add SourceRange to constructor and store it via ASTNode.
     public IfStmt(Expression condition, Suite thenSuite,
                   List<Expression> elifConditions,
                   List<Suite> elifSuites,
                   Suite elseSuite,
-                  int lineNumber) {
+                  SourceRange sourceRange) {
 
-        super("IfStmt", lineNumber);
+        super("IfStmt", sourceRange);
         this.condition = condition;
         this.thenSuite = thenSuite;
         this.elifConditions = elifConditions;
@@ -74,7 +76,7 @@ public class IfStmt extends Statement {
     // TODO(George): Modify toString for all AST nodes.
     @Override
     public String toString() {
-        return "IfStmt (line " + lineNumber + ")";
+        return "IfStmt " + formatLocation();
     }
 
 }

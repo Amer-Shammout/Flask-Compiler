@@ -7,10 +7,6 @@ public abstract class ASTNode {
     protected int lineNumber;
     protected SourceRange sourceRange;
 
-    public ASTNode(String nodeName, int lineNumber) {
-        this(nodeName, lineNumber, null);
-    }
-
     public ASTNode(String nodeName, SourceRange sourceRange) {
         this(nodeName,
                 sourceRange != null && sourceRange.getStart() != null

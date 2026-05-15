@@ -1,6 +1,7 @@
 package AST.expr;
 
 import AST.ASTNode;
+import AST.SourceRange;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -11,9 +12,9 @@ public class BinaryExpr extends Expression {
     private String operator;
     private Expression right;
 
-        // TODO(George): Add SourceRange to constructor and store it via ASTNode.
-    public BinaryExpr(Expression left, String operator, Expression right, int lineNumber) {
-        super("BinaryExpr", lineNumber);
+    // TODO(George): Add SourceRange to constructor and store it via ASTNode.
+    public BinaryExpr(Expression left, String operator, Expression right, SourceRange sourceRange) {
+        super("BinaryExpr", sourceRange);
         this.left = left;
         this.operator = operator;
         this.right = right;
@@ -27,6 +28,7 @@ public class BinaryExpr extends Expression {
         return operator;
     }
 
+    // TODO(George): Ensure every AST node exposes getters for its fields.
     public Expression getRight() {
         return right;
     }
@@ -42,7 +44,7 @@ public class BinaryExpr extends Expression {
     // TODO(George): Modify toString for all AST nodes.
     @Override
     public String toString() {
-        return "BinaryExpr{operator='" + operator + "'} (line " + lineNumber + ")";
+        return "BinaryExpr{operator='" + operator + "'} " + formatLocation();
     }
 
 }

@@ -1,6 +1,7 @@
 package AST.stmt;
 
 import AST.ASTNode;
+import AST.SourceRange;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -9,11 +10,13 @@ public class DecoratedStmt extends Statement {
     private List<Decorator> decorators;
     private Statement target;
 
+
+
+    // TODO(George): Add SourceRange to constructor and store it via ASTNode.
     public DecoratedStmt(List<Decorator> decorators,
                          Statement target,
-                         int line) {
-        super("DecoratedStmt", line);
-            // TODO(George): Add SourceRange to constructor and store it via ASTNode.
+                         SourceRange sourceRange) {
+        super("DecoratedStmt", sourceRange);
         this.decorators = decorators;
         this.target = target;
     }
@@ -37,7 +40,7 @@ public class DecoratedStmt extends Statement {
     // TODO(George): Modify toString for all AST nodes.
     @Override
     public String toString() {
-        return "DecoratedStmt (line " + lineNumber + ")";
+        return "DecoratedStmt " + formatLocation();
     }
 
 }

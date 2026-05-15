@@ -1,12 +1,14 @@
 package AST.literal;
 
+import AST.SourceRange;
+
 public class NumberLiteralExpr extends LiteralExpr {
 
     private String value;
 
-    public NumberLiteralExpr(String value, int lineNumber) {
-           super("NumberLiteralExpr", lineNumber); 
-           // TODO(George): Add SourceRange to constructor and store it via ASTNode.
+    // TODO(George): Add SourceRange to constructor and store it via ASTNode.
+    public NumberLiteralExpr(String value, SourceRange sourceRange) {
+           super("NumberLiteralExpr", sourceRange);
         this.value = value;
     }
 
@@ -18,7 +20,7 @@ public class NumberLiteralExpr extends LiteralExpr {
     // TODO(George): Modify toString for all AST nodes.
     @Override
     public String toString() {
-        return "NumberLiteralExpr(" + value + ") (line " + lineNumber + ")";
+        return "NumberLiteralExpr(" + value + ") " + formatLocation();
     }
 
 }

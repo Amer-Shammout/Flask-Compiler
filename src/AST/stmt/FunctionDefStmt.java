@@ -1,6 +1,7 @@
 package AST.stmt;
 
 import AST.ASTNode;
+import AST.SourceRange;
 import AST.suite.Suite;
 import java.util.List;
 
@@ -10,14 +11,17 @@ public class FunctionDefStmt extends Statement {
     private List<String> parameters;
     private Suite body;
 
+
+
+    // TODO(George): Add SourceRange to constructor and store it via ASTNode.
     public FunctionDefStmt(String name, List<String> parameters,
-                           Suite body, int lineNumber) {
-        super("FunctionDefStmt", lineNumber);
+                           Suite body, SourceRange sourceRange) {
+        super("FunctionDefStmt", sourceRange);
         this.name = name;
         this.parameters = parameters;
         this.body = body;
-            // TODO(George): Add SourceRange to constructor and store it via ASTNode.
     }
+    // TODO(George): Ensure every AST node exposes getters for its fields.
     public String getName() {
         return name;
     }
@@ -26,7 +30,6 @@ public class FunctionDefStmt extends Statement {
         return parameters;
     }
 
-    // TODO(George): Ensure every AST node exposes getters for its fields.
     public Suite getBody() {
         return body;
     }
@@ -40,7 +43,7 @@ public class FunctionDefStmt extends Statement {
     // TODO(George): Modify toString for all AST nodes.
     @Override
     public String toString() {
-        return "FunctionDefStmt(" + name + ") (line " + lineNumber + ")";
+        return "FunctionDefStmt(" + name + ") " + formatLocation();
     }
 
 

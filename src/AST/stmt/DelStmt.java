@@ -1,6 +1,7 @@
 package AST.stmt;
 
 import AST.ASTNode;
+import AST.SourceRange;
 import AST.expr.Expression;
 
 import java.util.ArrayList;
@@ -8,12 +9,11 @@ import java.util.List;
 
 public class DelStmt extends Statement {
 
-    // TODO(George): Add SourceRange to constructor and store it via ASTNode.
-
     private List<Expression> targets;
 
-    public DelStmt(List<Expression> targets, int line) {
-        super("DelStmt", line);
+    // TODO(George): Add SourceRange to constructor and store it via ASTNode.
+    public DelStmt(List<Expression> targets, SourceRange sourceRange) {
+        super("DelStmt", sourceRange);
         this.targets = targets;
     }
 

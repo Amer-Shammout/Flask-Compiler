@@ -1,15 +1,16 @@
 package AST.expr;
 
 import AST.ASTNode;
+import AST.SourceRange;
 import java.util.List;
 
 public class IndexExpr extends Expression {
-    // TODO(George): Add SourceRange to constructor and store it via ASTNode.
     private final Expression base;
     private final Expression index;
 
-    public IndexExpr(Expression base, Expression index, int line) {
-        super("IndexExpr", line);
+    // TODO(George): Add SourceRange to constructor and store it via ASTNode.
+    public IndexExpr(Expression base, Expression index, SourceRange sourceRange) {
+        super("IndexExpr", sourceRange);
         this.base = base;
         this.index = index;
     }
@@ -19,6 +20,7 @@ public class IndexExpr extends Expression {
         return base;
     }
 
+    // TODO(George): Ensure every AST node exposes getters for its fields.
     public Expression getIndex() {
         return index;
     }
@@ -31,7 +33,7 @@ public class IndexExpr extends Expression {
     // TODO(George): Modify toString for all AST nodes.
     @Override
     public String toString() {
-        return "IndexExpr (line " + lineNumber + ")";
+        return "IndexExpr " + formatLocation();
     }
 
 }

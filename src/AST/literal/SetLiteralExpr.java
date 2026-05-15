@@ -1,6 +1,7 @@
 package AST.literal;
 
 import AST.ASTNode;
+import AST.SourceRange;
 import AST.expr.Expression;
 
 import java.util.List;
@@ -9,9 +10,9 @@ public class SetLiteralExpr extends Expression {
 
     private List<Expression> elements;
 
-    public SetLiteralExpr(List<Expression> elements, int line) {
-            // TODO(George): Add SourceRange to constructor and store it via ASTNode.
-        super("SetLiteralExpr", line);
+    // TODO(George): Add SourceRange to constructor and store it via ASTNode.
+    public SetLiteralExpr(List<Expression> elements, SourceRange sourceRange) {
+        super("SetLiteralExpr", sourceRange);
         this.elements = elements;
     }
 
@@ -28,7 +29,7 @@ public class SetLiteralExpr extends Expression {
     // TODO(George): Modify toString for all AST nodes.
     @Override
     public String toString() {
-        return "SetLiteralExpr(size=" + elements.size() + ") (line " + lineNumber + ")";
+        return "SetLiteralExpr(size=" + elements.size() + ") " + formatLocation();
     }
 
 }

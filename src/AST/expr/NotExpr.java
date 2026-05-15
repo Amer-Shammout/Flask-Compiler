@@ -1,17 +1,16 @@
 package AST.expr;
 
 import AST.ASTNode;
+import AST.SourceRange;
 
 import java.util.List;
 
 public class NotExpr extends Expression {
-
-    // TODO(George): Add SourceRange to constructor and store it via ASTNode.
-
     private Expression expr;
 
-    public NotExpr(Expression expr, int line) {
-        super("NotExpr", line);
+    // TODO(George): Add SourceRange to constructor and store it via ASTNode.
+    public NotExpr(Expression expr, SourceRange sourceRange) {
+        super("NotExpr", sourceRange);
         this.expr = expr;
     }
 
@@ -28,7 +27,7 @@ public class NotExpr extends Expression {
     // TODO(George): Modify toString for all AST nodes.
     @Override
     public String toString() {
-        return "NotExpr (line " + lineNumber + ")";
+        return "NotExpr " + formatLocation();
     }
 
 }

@@ -2,6 +2,8 @@ package AST.visitor;
 
 import AST.ASTNode;
 import AST.Program;
+import AST.SourcePosition;
+import AST.SourceRange;
 import AST.expr.*;
 import AST.literal.*;
 import AST.stmt.*;
@@ -9,13 +11,14 @@ import AST.suite.*;
 import antlr.FlaskParser;
 import antlr.FlaskParserBaseVisitor;
 
+import org.antlr.v4.runtime.ParserRuleContext;
+import org.antlr.v4.runtime.Token;
+
 import java.util.ArrayList;
 import java.util.List;
 
 public class FlaskVisitor extends FlaskParserBaseVisitor<ASTNode> {
-
     // TODO(George): Build SourceRange from ctx.getStart()/getStop() and pass it into all AST nodes.
-
     @Override
     public ASTNode visitProg(FlaskParser.ProgContext ctx) {
         List<Statement> list = new ArrayList<>();
@@ -23,7 +26,7 @@ public class FlaskVisitor extends FlaskParserBaseVisitor<ASTNode> {
             Statement st = (Statement) visit(s);
             if (st != null) list.add(st);
         }
-        return new Program(list, 1);
+        return new Program(list, range(ctx));
     }
 
     /* =========================
@@ -32,11 +35,12 @@ public class FlaskVisitor extends FlaskParserBaseVisitor<ASTNode> {
 
     @Override
     public ASTNode visitSimpleStmtLine(FlaskParser.SimpleStmtLineContext ctx) {
-
         ASTNode inner = visit(ctx.simple_stmt());
 
         if (inner instanceof Expression) {
-            return new ExpressionStmt((Expression) inner, ctx.start.getLine());
+            Expression expr = (Expression) inner;
+            SourceRange r = expr.getSourceRange() != null ? expr.getSourceRange() : range(ctx);
+            return new ExpressionStmt(expr, r);
         }
 
         return inner;
@@ -55,10 +59,10 @@ public class FlaskVisitor extends FlaskParserBaseVisitor<ASTNode> {
 
     @Override
     public ASTNode visitAssign_target(FlaskParser.Assign_targetContext ctx) {
-        int line = ctx.start.getLine();
+        SourceRange sourceRange = range(ctx);
 
         // Base: the first IDENTIFIER token
-        Expression expr = new IdentifierExpr(ctx.IDENTIFIER(0).getText(), line);
+        Expression expr = new IdentifierExpr(ctx.IDENTIFIER(0).getText(), sourceRange);
 
         // Walk the children: IDENTIFIER (DOT IDENTIFIER | LBRACK expr RBRACK)*
         // child(0) = IDENTIFIER, so start from 1
@@ -72,7 +76,7 @@ public class FlaskVisitor extends FlaskParserBaseVisitor<ASTNode> {
             if (".".equals(text)) {
                 org.antlr.v4.runtime.tree.ParseTree nameNode = ctx.getChild(i + 1);
                 String attrName = nameNode.getText();
-                expr = new AttributeExpr(expr, attrName, line);
+                expr = new AttributeExpr(expr, attrName, sourceRange);
                 i += 2; // skip '.' and name
             }
             // Case 2: [ expr ]
@@ -80,7 +84,7 @@ public class FlaskVisitor extends FlaskParserBaseVisitor<ASTNode> {
                 FlaskParser.ExprContext ectx =
                         (FlaskParser.ExprContext) ctx.getChild(i + 1);
                 Expression indexExpr = (Expression) visit(ectx);
-                expr = new IndexExpr(expr, indexExpr, line);
+                expr = new IndexExpr(expr, indexExpr, sourceRange);
                 i += 3; // skip '[', expr, ']'
             } else {
                 i++;
@@ -100,7 +104,7 @@ public class FlaskVisitor extends FlaskParserBaseVisitor<ASTNode> {
         {
             Expression lhs = (Expression) visit(ctx.assign_target(0));
             Expression rhs = (Expression) visit(ctx.expr());
-            return new AssignmentStmt(lhs, rhs, ctx.start.getLine());
+            return new AssignmentStmt(lhs, rhs, range(ctx));
         }
 
         // Otherwise: chained assignment a = b = c = value
@@ -112,24 +116,24 @@ public class FlaskVisitor extends FlaskParserBaseVisitor<ASTNode> {
 
         Expression rhs = (Expression) visit(ctx.expr());
 
-        return new AssignmentChainStmt(lhsList, rhs, ctx.start.getLine());
+        return new AssignmentChainStmt(lhsList, rhs, range(ctx));
     }
 
 
     @Override
     public ASTNode visitReturn_stmt(FlaskParser.Return_stmtContext ctx) {
-        return new ReturnStmt((Expression) visit(ctx.expr()), ctx.start.getLine());
+        return new ReturnStmt((Expression) visit(ctx.expr()), range(ctx));
     }
 
 
     @Override public ASTNode visitPass_stmt(FlaskParser.Pass_stmtContext ctx)
-    { return new PassStmt(ctx.start.getLine()); }
+    { return new PassStmt(range(ctx)); }
 
     @Override public ASTNode visitBreak_stmt(FlaskParser.Break_stmtContext ctx)
-    { return new BreakStmt(ctx.start.getLine()); }
+    { return new BreakStmt(range(ctx)); }
 
     @Override public ASTNode visitContinue_stmt(FlaskParser.Continue_stmtContext ctx)
-    { return new ContinueStmt(ctx.start.getLine()); }
+    { return new ContinueStmt(range(ctx)); }
 
     @Override
     public ASTNode visitDel_stmt(FlaskParser.Del_stmtContext ctx) {
@@ -139,7 +143,7 @@ public class FlaskVisitor extends FlaskParserBaseVisitor<ASTNode> {
         for (var e : ctx.expr())
             list.add((Expression) visit(e));
 
-        return new DelStmt(list, ctx.start.getLine());
+        return new DelStmt(list, range(ctx));
     }
 
     @Override
@@ -148,7 +152,7 @@ public class FlaskVisitor extends FlaskParserBaseVisitor<ASTNode> {
         List<String> names =
                 ctx.IDENTIFIER().stream().map(t -> t.getText()).toList();
 
-        return new GlobalStmt(names, ctx.start.getLine());
+        return new GlobalStmt(names, range(ctx));
     }
 
     @Override
@@ -159,7 +163,7 @@ public class FlaskVisitor extends FlaskParserBaseVisitor<ASTNode> {
         List<String> names =
                 ctx.IDENTIFIER().stream().map(id -> id.getText()).toList();
 
-        return new FromImportStmt(module, names, ctx.start.getLine());
+        return new FromImportStmt(module, names, range(ctx));
     }
 
     @Override
@@ -184,26 +188,26 @@ public class FlaskVisitor extends FlaskParserBaseVisitor<ASTNode> {
         }
 
         return new IfStmt(cond, thenSuite, elifConds, elifSuites, elseSuite,
-                ctx.start.getLine());
+            range(ctx));
     }
 
     @Override
     public ASTNode visitWhile_stmt(FlaskParser.While_stmtContext ctx) {
         Expression cond = (Expression) visit(ctx.expr());
         Suite body = (Suite) visit(ctx.suite());
-        return new WhileStmt(cond, body, ctx.start.getLine());
+        return new WhileStmt(cond, body, range(ctx));
     }
 
     @Override
     public ASTNode visitFor_stmt(FlaskParser.For_stmtContext ctx) {
 
         IdentifierExpr iterator =
-                new IdentifierExpr(ctx.IDENTIFIER().getText(), ctx.start.getLine());
+                new IdentifierExpr(ctx.IDENTIFIER().getText(), range(ctx));
 
         Expression iterable = (Expression) visit(ctx.expr());
         Suite body = (Suite) visit(ctx.suite());
 
-        return new ForStmt(iterator, iterable, body, ctx.start.getLine());
+        return new ForStmt(iterator, iterable, body, range(ctx));
     }
 
     @Override
@@ -218,7 +222,7 @@ public class FlaskVisitor extends FlaskParserBaseVisitor<ASTNode> {
 
         Suite body = (Suite) visit(ctx.suite());
 
-        return new FunctionDefStmt(name, params, body, ctx.start.getLine());
+        return new FunctionDefStmt(name, params, body, range(ctx));
     }
 
 
@@ -234,14 +238,14 @@ public class FlaskVisitor extends FlaskParserBaseVisitor<ASTNode> {
 
         Suite body = (Suite) visit(ctx.suite());
 
-        return new ClassDefStmt(name, parent, body, ctx.start.getLine());
+        return new ClassDefStmt(name, parent, body, range(ctx));
     }
 
     @Override
     public ASTNode visitDecorator(FlaskParser.DecoratorContext ctx) {
 
         Expression expr = (Expression) visit(ctx.primary());
-        return new Decorator(expr, ctx.start.getLine());
+        return new Decorator(expr, range(ctx));
     }
 
     @Override
@@ -256,7 +260,7 @@ public class FlaskVisitor extends FlaskParserBaseVisitor<ASTNode> {
                 ? ctx.func_def()
                 : ctx.class_def());
 
-        return new DecoratedStmt(list, target, ctx.start.getLine());
+        return new DecoratedStmt(list, target, range(ctx));
     }
 
 
@@ -267,7 +271,7 @@ public class FlaskVisitor extends FlaskParserBaseVisitor<ASTNode> {
     @Override
     public ASTNode visitInlineSuite(FlaskParser.InlineSuiteContext ctx) {
         Statement st = (Statement) visit(ctx.simple_stmt());
-        return new InlineSuite(st, ctx.start.getLine());
+        return new InlineSuite(st, range(ctx));
     }
 
 
@@ -277,7 +281,7 @@ public class FlaskVisitor extends FlaskParserBaseVisitor<ASTNode> {
         for (FlaskParser.StmtContext s : ctx.stmt()) {
             list.add((Statement) visit(s));
         }
-        return new BlockSuite(list, ctx.start.getLine());
+        return new BlockSuite(list, range(ctx));
     }
 
 
@@ -303,7 +307,7 @@ public class FlaskVisitor extends FlaskParserBaseVisitor<ASTNode> {
 
         Expression body = (Expression) visit(ctx.expr());
 
-        return new LambdaExpr(params, body, ctx.start.getLine());
+        return new LambdaExpr(params, body, range(ctx));
     }
 
     @Override
@@ -317,7 +321,7 @@ public class FlaskVisitor extends FlaskParserBaseVisitor<ASTNode> {
 
         for (int i = 1; i < ctx.and_expr().size(); i++) {
             Expression rhs = (Expression) visit(ctx.and_expr(i));
-            result = new BinaryExpr(result, "or", rhs, ctx.start.getLine());
+            result = new BinaryExpr(result, "or", rhs, range(ctx));
         }
 
         return result;
@@ -329,7 +333,7 @@ public class FlaskVisitor extends FlaskParserBaseVisitor<ASTNode> {
 
         for (int i = 1; i < ctx.not_expr().size(); i++) {
             Expression rhs = (Expression) visit(ctx.not_expr(i));
-            result = new BinaryExpr(result, "and", rhs, ctx.start.getLine());
+            result = new BinaryExpr(result, "and", rhs, range(ctx));
         }
 
         return result;
@@ -338,7 +342,7 @@ public class FlaskVisitor extends FlaskParserBaseVisitor<ASTNode> {
     @Override
     public ASTNode visitNotExpr(FlaskParser.NotExprContext ctx) {
         Expression sub = (Expression) visit(ctx.not_expr());
-        return new NotExpr(sub, ctx.start.getLine());
+        return new NotExpr(sub, range(ctx));
     }
 
     @Override
@@ -366,7 +370,7 @@ public class FlaskVisitor extends FlaskParserBaseVisitor<ASTNode> {
             }
         }
 
-        return new CompareExpr(left, ops, rights, ctx.start.getLine());
+        return new CompareExpr(left, ops, rights, range(ctx));
     }
 
 
@@ -378,7 +382,7 @@ public class FlaskVisitor extends FlaskParserBaseVisitor<ASTNode> {
         for (int i = 1; i < ctx.term().size(); i++) {
             String op = ctx.getChild(2 * i - 1).getText();
             Expression rhs = (Expression) visit(ctx.term(i));
-            result = new BinaryExpr(result, op, rhs, ctx.start.getLine());
+            result = new BinaryExpr(result, op, rhs, range(ctx));
         }
 
         return result;
@@ -393,7 +397,7 @@ public class FlaskVisitor extends FlaskParserBaseVisitor<ASTNode> {
         for (int i = 1; i < ctx.power().size(); i++) {
             String op = ctx.getChild(2 * i - 1).getText();
             Expression rhs = (Expression) visit(ctx.power(i));
-            result = new BinaryExpr(result, op, rhs, ctx.start.getLine());
+            result = new BinaryExpr(result, op, rhs, range(ctx));
         }
 
         return result;
@@ -406,7 +410,7 @@ public class FlaskVisitor extends FlaskParserBaseVisitor<ASTNode> {
 
         if (ctx.power() != null) {
             Expression exponent = (Expression) visit(ctx.power());
-            return new BinaryExpr(base, "**", exponent, ctx.start.getLine());
+            return new BinaryExpr(base, "**", exponent, range(ctx));
         }
 
         return base;
@@ -418,7 +422,7 @@ public class FlaskVisitor extends FlaskParserBaseVisitor<ASTNode> {
         String op = ctx.getChild(0).getText();
         Expression expr = (Expression) visit(ctx.getChild(1));
 
-        return new UnaryExpr(op, expr, ctx.start.getLine());
+        return new UnaryExpr(op, expr, range(ctx));
     }
 
     @Override
@@ -430,7 +434,7 @@ public class FlaskVisitor extends FlaskParserBaseVisitor<ASTNode> {
     @Override
     public ASTNode visitPrimaryRoot(FlaskParser.PrimaryRootContext ctx) {
 
-        int line = ctx.start.getLine();
+        SourceRange sourceRange = range(ctx);
 
         // 1. Start with atom (base)
         Expression base = (Expression) visit(ctx.atom());
@@ -448,17 +452,17 @@ public class FlaskVisitor extends FlaskParserBaseVisitor<ASTNode> {
                     }
                 }
 
-                base = new CallExpr(base, args, line);
+                base = new CallExpr(base, args, sourceRange);
             }
             else if (t instanceof FlaskParser.AttrTrailerContext attr) {
 
                 String name = attr.IDENTIFIER().getText();
-                base = new AttributeExpr(base, name, line);
+                base = new AttributeExpr(base, name, sourceRange);
             }
             else if (t instanceof FlaskParser.IndexTrailerContext idx) {
 
                 Expression indexExpr = (Expression) visit(idx.expr());
-                base = new IndexExpr(base, indexExpr, line);
+                base = new IndexExpr(base, indexExpr, sourceRange);
             }
         }
 
@@ -477,52 +481,52 @@ public class FlaskVisitor extends FlaskParserBaseVisitor<ASTNode> {
 
     @Override
     public ASTNode visitIdAtom(FlaskParser.IdAtomContext ctx) {
-        return new IdentifierExpr(ctx.IDENTIFIER().getText(), ctx.start.getLine());
+        return new IdentifierExpr(ctx.IDENTIFIER().getText(), range(ctx));
     }
 
     @Override
     public ASTNode visitIntNumber(FlaskParser.IntNumberContext ctx) {
-        return new NumberLiteralExpr(ctx.getText(), ctx.start.getLine());
+        return new NumberLiteralExpr(ctx.getText(), range(ctx));
     }
 
     @Override
     public ASTNode visitFloatNumber(FlaskParser.FloatNumberContext ctx) {
-        return new NumberLiteralExpr(ctx.getText(), ctx.start.getLine());
+        return new NumberLiteralExpr(ctx.getText(), range(ctx));
     }
 
     @Override
     public ASTNode visitSciNumber(FlaskParser.SciNumberContext ctx) {
-        return new NumberLiteralExpr(ctx.getText(), ctx.start.getLine());
+        return new NumberLiteralExpr(ctx.getText(), range(ctx));
     }
 
     @Override
     public ASTNode visitTripleString(FlaskParser.TripleStringContext ctx) {
-        return new StringLiteralExpr(ctx.getText(), ctx.start.getLine());
+        return new StringLiteralExpr(ctx.getText(), range(ctx));
     }
 
     @Override
     public ASTNode visitSingleString(FlaskParser.SingleStringContext ctx) {
-        return new StringLiteralExpr(ctx.getText(), ctx.start.getLine());
+        return new StringLiteralExpr(ctx.getText(), range(ctx));
     }
 
     @Override
     public ASTNode visitDoubleString(FlaskParser.DoubleStringContext ctx) {
-        return new StringLiteralExpr(ctx.getText(), ctx.start.getLine());
+        return new StringLiteralExpr(ctx.getText(), range(ctx));
     }
 
     @Override
     public ASTNode visitTrueLiteral(FlaskParser.TrueLiteralContext ctx) {
-        return new BooleanLiteralExpr(true, ctx.start.getLine());
+        return new BooleanLiteralExpr(true, range(ctx));
     }
 
     @Override
     public ASTNode visitFalseLiteral(FlaskParser.FalseLiteralContext ctx) {
-        return new BooleanLiteralExpr(false, ctx.start.getLine());
+        return new BooleanLiteralExpr(false, range(ctx));
     }
 
     @Override
     public ASTNode visitNoneLiteral(FlaskParser.NoneLiteralContext ctx) {
-        return new NoneLiteralExpr(ctx.start.getLine());
+        return new NoneLiteralExpr(range(ctx));
     }
 
     @Override
@@ -535,7 +539,7 @@ public class FlaskVisitor extends FlaskParserBaseVisitor<ASTNode> {
             elems.add((Expression) visit(e));
         }
 
-        return new SetLiteralExpr(elems, ctx.start.getLine());
+        return new SetLiteralExpr(elems, range(ctx));
     }
 
     @Override
@@ -548,6 +552,33 @@ public class FlaskVisitor extends FlaskParserBaseVisitor<ASTNode> {
             elems.add((Expression) visit(e));
         }
 
-        return new ListLiteralExpr(elems, ctx.start.getLine());
+        return new ListLiteralExpr(elems, range(ctx));
+    }
+
+    private SourceRange range(ParserRuleContext ctx) {
+        if (ctx == null) {
+            return null;
+        }
+
+        Token start = ctx.getStart();
+        Token stop = ctx.getStop() != null ? ctx.getStop() : start;
+
+        int startColumn = start.getCharPositionInLine() + 1;
+        SourcePosition startPosition = new SourcePosition(start.getLine(), startColumn);
+
+        int endLine = stop.getLine();
+        int endColumn = stop.getCharPositionInLine() + 1;
+        String stopText = stop.getText();
+        if (stopText != null && !stopText.isEmpty()) {
+            int lastNewLine = Math.max(stopText.lastIndexOf('\n'), stopText.lastIndexOf('\r'));
+            if (lastNewLine >= 0) {
+                endLine = stop.getLine();
+                endColumn = stopText.length() - lastNewLine;
+            } else {
+                endColumn += stopText.length() - 1;
+            }
+        }
+
+        return new SourceRange(startPosition, new SourcePosition(endLine, endColumn));
     }
 }
