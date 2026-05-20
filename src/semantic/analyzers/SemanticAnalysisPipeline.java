@@ -2,11 +2,11 @@ package semantic.analyzers;
 
 import AST.Program;
 import AST.template.TemplateNode;
+import SymbolTable.FlaskReferenceIndex;
 import SymbolTable.SymbolTableRepository;
+import SymbolTable.TemplateReferenceIndex;
 import semantic.bridge.TemplateContextBridge;
-import semantic.diagnostics.Diagnostic;
 import semantic.diagnostics.DiagnosticCollector;
-import semantic.diagnostics.ErrorCode;
 
 /**
  * Orchestrates semantic phases in order:
@@ -36,24 +36,18 @@ public class SemanticAnalysisPipeline {
      * @return Shared diagnostics collector containing all emitted diagnostics.
      */
     public DiagnosticCollector analyze(Program flaskProgram, TemplateNode templateRoot) {
-        flaskAnalyzer.analyze(flaskProgram);
-        templateAnalyzer.analyze(templateRoot);
-
-        runBridge(flaskProgram, templateRoot);
-        return diagnostics;
+        return analyze(flaskProgram, templateRoot, null, null);
     }
 
-    private void runBridge(Program flaskProgram, TemplateNode templateRoot) {
-        try {
-            contextBridge.bridge(flaskProgram, templateRoot);
-        } catch (UnsupportedOperationException ex) {
-            diagnostics.addDiagnostic(new Diagnostic(
-                null,
-                ErrorCode.H001_SUGGESTION,
-                "TemplateContextBridge.bridge(...) is not implemented yet.",
-                "Implement bridge resolution to produce cross-context diagnostics."
-            ));
-        }
+    public DiagnosticCollector analyze(
+            Program flaskProgram,
+            TemplateNode templateRoot,
+            FlaskReferenceIndex flaskIndex,
+            TemplateReferenceIndex templateIndex) {
+        flaskAnalyzer.analyze(flaskProgram);
+        templateAnalyzer.analyze(templateRoot);
+        contextBridge.bridge(flaskProgram, templateRoot, flaskIndex, templateIndex);
+        return diagnostics;
     }
 
     public TemplateContextBridge getContextBridge() {

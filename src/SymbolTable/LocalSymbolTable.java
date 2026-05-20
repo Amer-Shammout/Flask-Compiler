@@ -1,54 +1,64 @@
 package SymbolTable;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
 /**
- * Local / nested scope symbol table. Laila should implement parent chaining
- * and shadowing semantics here.
+ * Local / nested scope symbol table with parent chaining.
  */
 public class LocalSymbolTable extends AbstractSymbolTable {
 
     private final ISymbolTable parent;
+    private final boolean caseSensitive;
 
     public LocalSymbolTable(String name, ISymbolTable parent) {
+        this(name, parent, true);
+    }
+
+    public LocalSymbolTable(String name, ISymbolTable parent, boolean caseSensitive) {
         super(name);
         this.parent = parent;
+        this.caseSensitive = caseSensitive;
+    }
+
+    public ISymbolTable getParent() {
+        return parent;
     }
 
     @Override
     public boolean define(Symbol symbol) {
-        // TODO(Laila): Implement definition with local conflict detection.
-        throw new UnsupportedOperationException("TODO");
+        return insertSymbol(symbol, caseSensitive);
     }
 
     @Override
     public Optional<Symbol> lookupLocal(String name) {
-        // TODO(Laila): Lookup only in this local table.
-        throw new UnsupportedOperationException("TODO");
+        return lookupInMap(name, caseSensitive);
     }
 
     @Override
     public Optional<Symbol> lookup(String name) {
-        // TODO(Laila): Lookup in local then parent(s) according to policy.
-        throw new UnsupportedOperationException("TODO");
+        Optional<Symbol> local = lookupLocal(name);
+        if (local.isPresent()) {
+            return local;
+        }
+        return parent != null ? parent.lookup(name) : Optional.empty();
     }
 
     @Override
     public ISymbolTable enterScope(String scopeName) {
-        // TODO(Laila): Create nested child scope (return new LocalSymbolTable)
-        throw new UnsupportedOperationException("TODO");
+        LocalSymbolTable child = new LocalSymbolTable(scopeName, this, caseSensitive);
+        children.add(child);
+        return child;
     }
 
     @Override
     public ISymbolTable exitScope() {
-        // TODO(Laila): Return parent scope.
-        throw new UnsupportedOperationException("TODO");
+        return parent;
     }
 
     @Override
     public List<Symbol> listLocalSymbols() {
-        // TODO(Laila): Return list of local symbols.
-        throw new UnsupportedOperationException("TODO");
+        return new ArrayList<>(symbols.values());
     }
 }

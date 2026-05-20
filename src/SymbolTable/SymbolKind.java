@@ -9,6 +9,7 @@ public enum SymbolKind {
     FUNCTION,
     CLASS,
     TEMPLATE,
+    BLOCK,
     IMPORT,
     PARAMETER,
     MODULE

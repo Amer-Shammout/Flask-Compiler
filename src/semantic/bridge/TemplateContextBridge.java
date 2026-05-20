@@ -1,190 +1,253 @@
 package semantic.bridge;
 
-import SymbolTable.*;
 import AST.Program;
+import AST.SourceRange;
 import AST.template.TemplateNode;
-import semantic.diagnostics.*;
-import java.util.*;
+import SymbolTable.FlaskReferenceIndex;
+import SymbolTable.NameResolver;
+import SymbolTable.ScopeBinding;
+import SymbolTable.Symbol;
+import SymbolTable.SymbolKind;
+import SymbolTable.SymbolReference;
+import SymbolTable.SymbolTableRepository;
+import SymbolTable.SymbolUseKind;
+import SymbolTable.TemplateReferenceIndex;
+import semantic.diagnostics.DiagnosticCollector;
+import semantic.diagnostics.TypeKind;
+
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
 
 /**
- * TemplateContextBridge links Flask context with Template context.
- *
- * This class acts as a bridge between the Flask semantic analysis (from FlaskSymbolTable)
- * and Template semantic analysis (from TemplateSymbolTable), enabling:
- *
- * 1. Symbol Resolution: Resolve template variables by looking them up in Flask scope.
- * 2. Type Propagation: Infer template variable types from Flask definitions.
- * 3. Cross-Context Diagnostics: Generate diagnostics that reference both Flask and Template.
- * 4. Context Linking: Track which template variables come from which Flask variables.
- *
- * Architecture:
- * - Holds references to both SymbolTableRepository and DiagnosticCollector.
- * - Provides methods to resolve template symbols via Flask context.
- * - Maintains a map of template symbols to their Flask origins (TemplateContext).
- *
- * Usage:
- *   TemplateContextBridge bridge = new TemplateContextBridge(repository, collector);
- *   // During template analysis:
- *   TemplateContext ctx = bridge.resolveTemplateSymbol(templateSymbol);
- *   if (ctx.isLinkedToFlask()) {
- *       / Use Flask symbol for type/value
- *   } else if (ctx.getOrigin() == SymbolOrigin.UNKNOWN) {
- *       / Generate undefined symbol diagnostic
- *   }
- *
- * TODO(Sedra): Implement full cross-linking and type propagation logic.
- * TODO(Sedra): Add support for Flask context expressions (e.g., app.config, request.args).
+ * Links Flask {@code render_template(...)} context with Jinja template variable references.
  */
 public class TemplateContextBridge {
 
-    // === Fields ===
-
-    /** Repository holding both Flask and Template symbol tables. */
     private final SymbolTableRepository repository;
-
-    /** Collector for diagnostics generated during bridging. */
     private final DiagnosticCollector diagnosticCollector;
-
-    /**
-     * Map from template symbol names to their resolved context (linking Flask + Template).
-     * Key: symbol name in template.
-     * Value: TemplateContext describing its resolution.
-     */
-    private final Map<String, TemplateContext> contextMap;
-
-    /** Set of known Flask context variable names (passed from Flask app). */
-    private final Set<String> flaskContextVariables;
-
-    /** Flag indicating whether bridging has been performed. */
+    private final Map<String, TemplateContext> contextMap = new LinkedHashMap<>();
+    private final Set<String> flaskContextVariables = new LinkedHashSet<>();
+    private final CrossContextResolutionIndex resolutionIndex = new CrossContextResolutionIndex();
     private boolean bridged;
 
-
-    // === Constructors ===
-
-    /**
-     * Construct a TemplateContextBridge.
-     *
-     * @param repository SymbolTableRepository holding both tables.
-     * @param diagnosticCollector DiagnosticCollector for reporting cross-context issues.
-     */
-    public TemplateContextBridge(SymbolTableRepository repository,
-                                  DiagnosticCollector diagnosticCollector) {
+    public TemplateContextBridge(SymbolTableRepository repository, DiagnosticCollector diagnosticCollector) {
         this.repository = repository;
         this.diagnosticCollector = diagnosticCollector;
-        this.contextMap = new LinkedHashMap<>();
-        this.flaskContextVariables = new HashSet<>();
-        this.bridged = false;
     }
 
+    /**
+     * Bridge Flask render context to template references for one template file.
+     */
+    public void bridge(
+            Program program,
+            TemplateNode templateRoot,
+            FlaskReferenceIndex flaskIndex,
+            TemplateReferenceIndex templateIndex) {
+        clear();
+        String templateFileName = currentTemplateFileName();
+        List<RenderTemplateCall> callsForFile = filterCallsForTemplate(
+                FlaskContextExtractor.extract(program),
+                templateFileName);
 
-    // === Core Bridging Methods ===
+        for (RenderTemplateCall call : callsForFile) {
+            resolutionIndex.recordRenderCall(call);
+            flaskContextVariables.addAll(call.getContextVariableNames());
+        }
+
+        Set<String> renderContextKeys = mergeContextKeys(callsForFile);
+
+        if (templateIndex != null) {
+            bridgeTemplateReferences(templateFileName, templateIndex, renderContextKeys, callsForFile);
+        }
+
+        bridged = true;
+    }
 
     /**
-     * Perform the bridging process: link all template symbols to Flask scope where possible.
-     *
-     * This method:
-     * 1. Iterates over template symbol table.
-     * 2. For each template symbol, attempts to find a corresponding symbol in Flask table.
-     * 3. Creates a TemplateContext for each with appropriate origin and linking.
-     * 4. Generates diagnostics for unresolved or ambiguous symbols.
-     *
-     * TODO(Sedra): Implement full bridging algorithm:
-     *   - Exact name matching (template var X matches Flask var X).
-     *   - Scope matching (account for function/class scopes).
-     *   - Type inference (infer template var type from Flask var).
-     *   - Recursive context resolution (parent templates, imports).
-     *
-     * @param program Flask Program AST (optional, for reference).
-     * @param templateRoot Template AST root (optional, for reference).
+     * Convenience overload when reference indexes are not available.
      */
     public void bridge(Program program, TemplateNode templateRoot) {
-        // TODO(Sedra): Implement bridging logic.
-        // 1. Extract template symbols from TemplateSymbolTable (via repository).
-        // 2. For each, resolve via Flask symbol table using SymbolTableRepository.resolveAcross(...).
-        // 3. Create TemplateContext with appropriate origin.
-        // 4. Store in contextMap.
-        // 5. Generate diagnostics for unresolved or suspicious symbols.
-
-        this.bridged = true;
+        bridge(program, templateRoot, null, null);
     }
 
+    private void bridgeTemplateReferences(
+            String templateFileName,
+            TemplateReferenceIndex templateIndex,
+            Set<String> renderContextKeys,
+            List<RenderTemplateCall> callsForFile) {
 
-    // === Symbol Resolution Methods ===
+        for (SymbolReference reference : templateIndex.getReferences()) {
+            if (reference.getUseKind() != SymbolUseKind.REFERENCE) {
+                continue;
+            }
 
-    /**
-     * Resolve a template symbol to a TemplateContext.
-     *
-     * First checks contextMap (if bridged). If not found or not bridged, attempts on-demand resolution.
-     *
-     * TODO(Sedra): Implement on-demand resolution logic.
-     *
-     * @param templateSymbolName Name of the symbol in template.
-     * @return Optional TemplateContext; empty if symbol not found.
-     */
+            CrossContextMatch match = resolveReference(
+                    templateFileName,
+                    reference,
+                    renderContextKeys,
+                    callsForFile);
+            resolutionIndex.recordMatch(match);
+            registerFromMatch(match);
+        }
+    }
+
+    private CrossContextMatch resolveReference(
+            String templateFileName,
+            SymbolReference reference,
+            Set<String> renderContextKeys,
+            List<RenderTemplateCall> callsForFile) {
+
+        String name = reference.getName();
+
+        if (!reference.isUnresolved()) {
+            return new CrossContextMatch(
+                    reference,
+                    CrossContextMatch.MatchKind.TEMPLATE_LOCAL,
+                    templateFileName,
+                    null,
+                    null);
+        }
+
+        if (renderContextKeys.contains(name)) {
+            SourceRange callSite = findCallSiteProviding(callsForFile, name);
+            return new CrossContextMatch(
+                    reference,
+                    CrossContextMatch.MatchKind.FLASK_RENDER_CONTEXT,
+                    templateFileName,
+                    name,
+                    callSite);
+        }
+
+        if (!callsForFile.isEmpty()) {
+            return new CrossContextMatch(
+                    reference,
+                    CrossContextMatch.MatchKind.MISSING_FROM_RENDER_CONTEXT,
+                    templateFileName,
+                    null,
+                    null);
+        }
+
+        return new CrossContextMatch(
+                reference,
+                CrossContextMatch.MatchKind.UNRESOLVED,
+                templateFileName,
+                null,
+                null);
+    }
+
+    private void registerFromMatch(CrossContextMatch match) {
+        String name = match.getTemplateReference().getName();
+        SymbolReference ref = match.getTemplateReference();
+
+        switch (match.getMatchKind()) {
+            case TEMPLATE_LOCAL -> {
+                Symbol templateSymbol = ref.getResolvedSymbol();
+                if (templateSymbol == null) {
+                    templateSymbol = new Symbol(name, SymbolKind.VARIABLE, currentTemplateFileName());
+                }
+                contextMap.put(name, new TemplateContext(
+                        templateSymbol,
+                        null,
+                        TemplateContext.SymbolOrigin.LOCAL,
+                        TypeKind.UNKNOWN,
+                        ref.getDefiningScopeName()));
+            }
+            case FLASK_RENDER_CONTEXT -> {
+                Symbol templateSymbol = new Symbol(name, SymbolKind.VARIABLE, currentTemplateFileName());
+                Optional<Symbol> flaskSymbol = lookupFlaskSymbol(name);
+                contextMap.put(name, new TemplateContext(
+                        templateSymbol,
+                        flaskSymbol.orElse(null),
+                        TemplateContext.SymbolOrigin.FLASK_CONTEXT,
+                        TypeKind.UNKNOWN,
+                        match.getFlaskContextKey()));
+            }
+            case MISSING_FROM_RENDER_CONTEXT -> {
+                Symbol templateSymbol = new Symbol(name, SymbolKind.VARIABLE, currentTemplateFileName());
+                contextMap.put(name, new TemplateContext(
+                        templateSymbol,
+                        null,
+                        TemplateContext.SymbolOrigin.UNKNOWN,
+                        TypeKind.UNKNOWN,
+                        "not passed to render_template for " + match.getTemplateFileName()));
+            }
+            case UNRESOLVED -> {
+                Symbol templateSymbol = new Symbol(name, SymbolKind.VARIABLE, currentTemplateFileName());
+                contextMap.put(name, new TemplateContext(templateSymbol, TemplateContext.SymbolOrigin.UNKNOWN));
+            }
+            default -> {
+            }
+        }
+    }
+
+    private static SourceRange findCallSiteProviding(List<RenderTemplateCall> calls, String variableName) {
+        for (RenderTemplateCall call : calls) {
+            if (call.getContextVariableNames().contains(variableName)) {
+                return call.getSourceRange();
+            }
+        }
+        return null;
+    }
+
+    private static Set<String> mergeContextKeys(List<RenderTemplateCall> calls) {
+        Set<String> keys = new LinkedHashSet<>();
+        for (RenderTemplateCall call : calls) {
+            keys.addAll(call.getContextVariableNames());
+        }
+        return keys;
+    }
+
+    private static List<RenderTemplateCall> filterCallsForTemplate(
+            List<RenderTemplateCall> allCalls,
+            String templateFileName) {
+        List<RenderTemplateCall> filtered = new ArrayList<>();
+        for (RenderTemplateCall call : allCalls) {
+            if (templateFileName.equalsIgnoreCase(call.getTemplateName())) {
+                filtered.add(call);
+            }
+        }
+        return filtered;
+    }
+
+    private String currentTemplateFileName() {
+        return repository.getTemplateGlobal().getTemplateName() != null
+                ? repository.getTemplateGlobal().getTemplateName()
+                : "";
+    }
+
+    // -------------------------------------------------------------------------
+    // Public API
+    // -------------------------------------------------------------------------
+
     public Optional<TemplateContext> resolveTemplateSymbol(String templateSymbolName) {
-        // TODO(Sedra): Implement resolution.
-        // 1. Check contextMap first.
-        // 2. If not present and not yet bridged, perform lazy resolution.
-        // 3. Return Optional.
-
-        return contextMap.containsKey(templateSymbolName)
-            ? Optional.of(contextMap.get(templateSymbolName))
-            : Optional.empty();
+        if (contextMap.containsKey(templateSymbolName)) {
+            return Optional.of(contextMap.get(templateSymbolName));
+        }
+        return Optional.empty();
     }
 
-    /**
-     * Resolve a template symbol by Symbol object (not just name).
-     *
-     * TODO(Sedra): Implement Symbol-based resolution.
-     *
-     * @param templateSymbol Symbol from TemplateSymbolTable.
-     * @return Optional TemplateContext.
-     */
     public Optional<TemplateContext> resolveTemplateSymbol(Symbol templateSymbol) {
         return resolveTemplateSymbol(templateSymbol.getName());
     }
 
-    /**
-     * Look up a Flask symbol that corresponds to a template symbol.
-     *
-     * TODO(Sedra): Implement Flask lookup with scope/type matching.
-     *
-     * @param templateSymbolName Name from template.
-     * @return Optional Symbol from Flask scope.
-     */
     public Optional<Symbol> lookupFlaskSymbol(String templateSymbolName) {
-        // TODO(Sedra): Query SymbolTableRepository.resolveAcross(...) or similar.
-        return Optional.empty(); // Placeholder
+        Optional<ScopeBinding> binding = NameResolver.resolve(repository.getFlaskGlobal(), templateSymbolName);
+        return binding.map(ScopeBinding::getSymbol);
     }
 
-
-    // === Context Mapping Methods ===
-
-    /**
-     * Manually register a TemplateContext (for testing or explicit linking).
-     *
-     * @param templateSymbolName Name of template symbol.
-     * @param context TemplateContext to register.
-     */
     public void registerContext(String templateSymbolName, TemplateContext context) {
         contextMap.put(templateSymbolName, context);
     }
 
-    /**
-     * Get all registered contexts.
-     *
-     * @return Unmodifiable map of all TemplateContexts.
-     */
     public Map<String, TemplateContext> getAllContexts() {
-        return Collections.unmodifiableMap(contextMap);
+        return Map.copyOf(contextMap);
     }
 
-    /**
-     * Get contexts filtered by origin.
-     *
-     * @param origin SymbolOrigin to filter by.
-     * @return List of TemplateContexts with the given origin.
-     */
     public List<TemplateContext> getContextsByOrigin(TemplateContext.SymbolOrigin origin) {
         List<TemplateContext> result = new ArrayList<>();
         for (TemplateContext ctx : contextMap.values()) {
@@ -195,11 +258,6 @@ public class TemplateContextBridge {
         return result;
     }
 
-    /**
-     * Get contexts that are linked to Flask.
-     *
-     * @return List of TemplateContexts with Flask symbols.
-     */
     public List<TemplateContext> getFlaskLinkedContexts() {
         List<TemplateContext> result = new ArrayList<>();
         for (TemplateContext ctx : contextMap.values()) {
@@ -210,75 +268,38 @@ public class TemplateContextBridge {
         return result;
     }
 
-
-    // === Flask Context Variable Registration ===
-
-    /**
-     * Register Flask context variable names (e.g., from Flask app.context_processor).
-     *
-     * This allows the bridge to recognize which template variables come from Flask context.
-     *
-     * @param variableNames Collection of variable names available in Flask context.
-     */
-    public void registerFlaskContextVariables(Collection<String> variableNames) {
+    public void registerFlaskContextVariables(java.util.Collection<String> variableNames) {
         flaskContextVariables.addAll(variableNames);
     }
 
-    /**
-     * Check if a name is a known Flask context variable.
-     *
-     * @param name Variable name to check.
-     * @return true if name is in registered Flask context.
-     */
     public boolean isFlaskContextVariable(String name) {
         return flaskContextVariables.contains(name);
     }
 
-
-    // === Query Methods ===
-
-    /**
-     * Check if bridging has been completed.
-     *
-     * @return true if bridge() has been called.
-     */
     public boolean isBridged() {
         return bridged;
     }
 
-    /**
-     * Get the number of registered contexts.
-     *
-     * @return Context count.
-     */
     public int getContextCount() {
         return contextMap.size();
     }
 
-    /**
-     * Get diagnostics collected during bridging.
-     *
-     * @return DiagnosticCollector used for bridging.
-     */
     public DiagnosticCollector getDiagnosticCollector() {
         return diagnosticCollector;
     }
 
+    public CrossContextResolutionIndex getResolutionIndex() {
+        return resolutionIndex;
+    }
 
-    // === Diagnostic Generation (Sedra Helpers) ===
+    public String formatReport() {
+        return resolutionIndex.formatReport();
+    }
 
-    /**
-     * Generate a diagnostic for an undefined template variable.
-     *
-     * Uses DiagnosticCollector helper: reportUndefinedVariable(...).
-     *
-     * @param templateSymbolName Name of undefined symbol.
-     * @param sourceRange Location in template.
-     * @param suggestions Optional list of similar Flask symbols (for "did you mean?").
-     */
-    public void generateUndefinedSymbolDiagnostic(String templateSymbolName,
-                                                   AST.SourceRange sourceRange,
-                                                   List<String> suggestions) {
+    public void generateUndefinedSymbolDiagnostic(
+            String templateSymbolName,
+            AST.SourceRange sourceRange,
+            List<String> suggestions) {
         String suggestion = null;
         if (suggestions != null && !suggestions.isEmpty()) {
             suggestion = "Did you mean " + suggestions.get(0) + "?";
@@ -286,69 +307,43 @@ public class TemplateContextBridge {
         diagnosticCollector.reportUndefinedVariable(sourceRange, templateSymbolName, suggestion);
     }
 
-    /**
-     * Generate a diagnostic for shadowing (template var shadows Flask var).
-     *
-     * Uses DiagnosticCollector helper: reportShadowing(...).
-     *
-     * @param templateSymbolName Name of shadowing symbol.
-     * @param flaskSymbolName Name of shadowed Flask symbol.
-     * @param sourceRange Location in template.
-     */
-    public void generateShadowingDiagnostic(String templateSymbolName,
-                                             String flaskSymbolName,
-                                             AST.SourceRange sourceRange) {
+    public void generateShadowingDiagnostic(
+            String templateSymbolName,
+            String flaskSymbolName,
+            AST.SourceRange sourceRange) {
         diagnosticCollector.reportShadowing(
-            sourceRange,
-            templateSymbolName,
-            flaskSymbolName,
-            "Flask context"
-        );
+                sourceRange,
+                templateSymbolName,
+                flaskSymbolName,
+                "Flask context");
     }
 
-    /**
-     * Generate a diagnostic for type mismatch between template usage and Flask definition.
-     *
-     * Uses DiagnosticCollector helper: reportTypeMismatch(...).
-     *
-     * @param templateSymbolName Name of symbol.
-     * @param expectedType Type from Flask (TypeKind).
-     * @param usageType Type inferred from template usage (TypeKind).
-     * @param sourceRange Location in template.
-     */
-    public void generateTypeMismatchDiagnostic(String templateSymbolName,
-                                                TypeKind expectedType,
-                                                TypeKind usageType,
-                                                AST.SourceRange sourceRange) {
+    public void generateTypeMismatchDiagnostic(
+            String templateSymbolName,
+            TypeKind expectedType,
+            TypeKind usageType,
+            AST.SourceRange sourceRange) {
         diagnosticCollector.reportTypeMismatch(
-            sourceRange,
-            templateSymbolName,
-            expectedType,
-            usageType,
-            "Ensure the template usage matches the Flask variable type."
-        );
+                sourceRange,
+                templateSymbolName,
+                expectedType,
+                usageType,
+                "Ensure the template usage matches the Flask variable type.");
     }
 
-
-    // === Utility Methods ===
-
-    /**
-     * Clear all registered contexts and reset state (for reuse or cleanup).
-     */
     public void clear() {
         contextMap.clear();
         flaskContextVariables.clear();
+        resolutionIndex.clear();
         bridged = false;
     }
 
-    /**
-     * Get a string summary of bridge state.
-     *
-     * @return Summary string.
-     */
     @Override
     public String toString() {
-        return String.format("TemplateContextBridge { contexts: %d, bridged: %b, flaskVars: %d }",
-                contextMap.size(), bridged, flaskContextVariables.size());
+        return String.format(
+                "TemplateContextBridge { contexts: %d, bridged: %b, flaskVars: %d }",
+                contextMap.size(),
+                bridged,
+                flaskContextVariables.size());
     }
 }

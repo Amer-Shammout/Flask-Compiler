@@ -1,0 +1,12 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Product Details</title>
+</head>
+<body>
+    <h1>{{ product[1] }}</h1>
+    <p>Price: ${{ product[2] }}</p>
+    <p>Status: {% if product[3] %}In Stock{% else %}Out of Stock{% endif %}</p>
+    <a href="/products">Back to Products</a>
+</body>
+</html>

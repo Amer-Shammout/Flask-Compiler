@@ -1,8 +1,17 @@
 import AST.ASTGraphvizPrinter;
 import AST.ASTNode;
 import AST.Program;
+import AST.template.TemplateNode;
 import AST.template.TemplateVisitor;
 import AST.visitor.ProgramVisitor;
+import SymbolTable.FlaskSymbolTable;
+import SymbolTable.FlaskSymbolTableBuilder;
+import SymbolTable.ISymbolTable;
+import SymbolTable.SymbolTableRepository;
+import SymbolTable.TemplateSymbolTable;
+import SymbolTable.TemplateSymbolTableBuilder;
+import semantic.bridge.TemplateContextBridge;
+import semantic.diagnostics.DiagnosticCollector;
 import antlr.FlaskLexer;
 import antlr.FlaskParser;
 import antlr.TemplateLexer;
@@ -25,7 +34,7 @@ public class Main {
     // Default input locations. Change these in one place when switching test data.
     private static final Path DEFAULT_FLASK_SOURCE = Paths.get("src/Tests/FinalTests/app.py").toAbsolutePath().normalize();
     private static final Path DEFAULT_TEMPLATE_SOURCE = Paths.get("src/Tests/Template/template1.html").toAbsolutePath().normalize();
-    private static final Path DEFAULT_TEMPLATE_DIRECTORY = Paths.get("src/Tests/Template").toAbsolutePath().normalize();
+    private static final Path DEFAULT_TEMPLATE_DIRECTORY = Paths.get("src/Tests/FinalTests").toAbsolutePath().normalize();
     private static final String FLASK_AST_OUTPUT = "ast-flask.dot";
     private static final String TEMPLATE_AST_OUTPUT = "ast-template.dot";
 
@@ -90,13 +99,39 @@ public class Main {
 
         Program flaskProgram = parseFlask(flaskPath);
         ASTGraphvizPrinter.print(flaskProgram, FLASK_AST_OUTPUT);
-        processFlaskSymbolTable(flaskProgram, flaskPath);
+
+        FlaskSymbolTable flaskTable = new FlaskSymbolTable("flask-global", flaskPath.toString());
+        SymbolTableRepository flaskOnlyRepo = new SymbolTableRepository(
+                flaskTable,
+                new TemplateSymbolTable("template-global", null)
+        );
+        FlaskSymbolTableBuilder flaskBuilder = new FlaskSymbolTableBuilder(flaskOnlyRepo);
+        flaskBuilder.build(flaskProgram);
+        System.out.println(flaskTable);
+        System.out.println(flaskBuilder.getReferenceIndex().formatReport());
 
         for (Path templatePath : templatePaths) {
             ASTNode root = parseTemplate(templatePath);
             String outputName = "ast-" + safeFileStem(templatePath) + ".dot";
             ASTGraphvizPrinter.print(root, outputName);
-            processTemplateSymbolTable(root, templatePath);
+
+            String templateName = templatePath.getFileName().toString();
+            SymbolTableRepository repo = new SymbolTableRepository(
+                    flaskTable,
+                    new TemplateSymbolTable("template-global", templateName)
+            );
+            TemplateSymbolTableBuilder templateBuilder = new TemplateSymbolTableBuilder(repo);
+            templateBuilder.buildTemplate(root);
+            System.out.println(repo.getTemplateGlobal());
+            System.out.println(templateBuilder.getReferenceIndex().formatReport());
+
+            TemplateContextBridge bridge = new TemplateContextBridge(repo, new DiagnosticCollector());
+            bridge.bridge(
+                    flaskProgram,
+                    (TemplateNode) root,
+                    flaskBuilder.getReferenceIndex(),
+                    templateBuilder.getReferenceIndex());
+            System.out.println(bridge.formatReport());
         }
 
         System.out.println("Combined mode finished: Flask file + " + templatePaths.size() + " template file(s).");
@@ -160,43 +195,26 @@ public class Main {
     }
 
     private static void processFlaskSymbolTable(Program program, Path sourcePath) {
-        // TODO(Laila): Instantiate FlaskSymbolTableRepository/Builder and build the table here.
-        // Expected flow:
-        // 1. create the Flask symbol table repository or global table
-        // 2. create FlaskSymbolTableBuilder
-        // 3. call builder.build(program)
-        // 4. print the resulting Flask symbol table
-
-        // Intended call site when Laila completes the builders:
-        // SymbolTableRepository repository = new SymbolTableRepository(
-        //         new FlaskSymbolTable("flask-global", sourcePath.toString()),
-        //         new TemplateSymbolTable("template-global", null)
-        // );
-        // FlaskSymbolTableBuilder builder = new FlaskSymbolTableBuilder(repository);
-        // ISymbolTable symbolTable = builder.build(program);
-        // System.out.println(symbolTable);
-
-        printSymbolTablePlaceholder("Flask", sourcePath);
+        SymbolTableRepository repository = new SymbolTableRepository(
+                new FlaskSymbolTable("flask-global", sourcePath.toString()),
+                new TemplateSymbolTable("template-global", null)
+        );
+        FlaskSymbolTableBuilder builder = new FlaskSymbolTableBuilder(repository);
+        ISymbolTable symbolTable = builder.build(program);
+        System.out.println(symbolTable);
+        System.out.println(builder.getReferenceIndex().formatReport());
     }
 
     private static void processTemplateSymbolTable(ASTNode root, Path sourcePath) {
-        // TODO(Laila): Instantiate TemplateSymbolTableRepository/Builder and build the table here.
-        // Expected flow:
-        // 1. create the Template symbol table repository or global table
-        // 2. create TemplateSymbolTableBuilder
-        // 3. call builder.build(...) using the parsed template root
-        // 4. print the resulting Template symbol table
-
-        // Intended call site when Laila completes the builders:
-        // SymbolTableRepository repository = new SymbolTableRepository(
-        //         new FlaskSymbolTable("flask-global", null),
-        //         new TemplateSymbolTable("template-global", sourcePath.toString())
-        // );
-        // TemplateSymbolTableBuilder builder = new TemplateSymbolTableBuilder(repository);
-        // ISymbolTable symbolTable = builder.build(root);
-        // System.out.println(symbolTable);
-
-        printSymbolTablePlaceholder("Template", sourcePath);
+        String templateName = sourcePath.getFileName().toString();
+        SymbolTableRepository repository = new SymbolTableRepository(
+                new FlaskSymbolTable("flask-global", null),
+                new TemplateSymbolTable("template-global", templateName)
+        );
+        TemplateSymbolTableBuilder builder = new TemplateSymbolTableBuilder(repository);
+        ISymbolTable symbolTable = builder.buildTemplate(root);
+        System.out.println(symbolTable);
+        System.out.println(builder.getReferenceIndex().formatReport());
     }
 
     private static void printSymbolTablePlaceholder(String kind, Path sourcePath) {

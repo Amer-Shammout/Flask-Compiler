@@ -1,6 +1,7 @@
 package SymbolTable;
 
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.Map;
 import java.util.ArrayList;
@@ -32,6 +33,23 @@ public abstract class AbstractSymbolTable implements ISymbolTable {
      * Return human readable name for this table (scope name).
      */
     public String getName() { return name; }
+
+    protected String normalizeKey(String symbolName, boolean caseSensitive) {
+        return caseSensitive ? symbolName : symbolName.toLowerCase(Locale.ROOT);
+    }
+
+    protected boolean insertSymbol(Symbol symbol, boolean caseSensitive) {
+        String key = normalizeKey(symbol.getName(), caseSensitive);
+        if (symbols.containsKey(key)) {
+            return false;
+        }
+        symbols.put(key, symbol);
+        return true;
+    }
+
+    protected Optional<Symbol> lookupInMap(String symbolName, boolean caseSensitive) {
+        return Optional.ofNullable(symbols.get(normalizeKey(symbolName, caseSensitive)));
+    }
 
     @Override
     public abstract boolean define(Symbol symbol);

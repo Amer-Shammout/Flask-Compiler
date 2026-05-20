@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ page_title | default("My Flask App") }}</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <style>
+        /* ========== Global Reset ========== */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background-color: {{ bg_color | default("#f8f9fa") }};
+            color: {{ text_color | default("#333") }};
+            line-height: 1.6;
+        }
+
+        /* ========== Layout ========== */
+        header {
+            background-color: {{ header_bg | default("#343a40") }};
+            padding: 15px 30px;
+            color: white;
+        }
+
+        nav ul {
+            list-style: none;
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+
+        nav a {
+            color: white;
+            text-decoration: none;
+            font-weight: bold;
+        }
+
+        nav a:hover {
+            text-decoration: underline;
+        }
+
+        main.container {
+            max-width: {% if wide_layout %}1200px{% else %}900px{% endif %};
+            margin: 30px auto;
+            padding: 20px;
+        }
+
+        footer {
+            text-align: center;
+            padding: 15px;
+            background: #eee;
+            margin-top: 40px;
+            font-size: 14px;
+        }
+
+        /* ========== Grid & Cards ========== */
+        .grid {
+            display: grid;
+            grid-template-columns: repeat({{ columns | default(3) }}, 1fr);
+            gap: 20px;
+        }
+
+        .card {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            border: 1px solid #ddd;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+        }
+
+        .card h2,
+        .card h3 {
+            margin-bottom: 10px;
+        }
+
+        /* ========== Buttons (Jinja Generated) ========== */
+        {% for color in theme.colors %}
+        .btn-{{ color.name }} {
+            background-color: {{ color.value }};
+            color: white;
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .btn-{{ color.name }}:hover {
+            background-color: {{ color.dark_value }};
+        }
+        {% endfor %}
+
+        /* ========== Forms ========== */
+        form label {
+            display: block;
+            margin-top: 12px;
+            font-weight: bold;
+        }
+
+        form input,
+        form textarea {
+            width: 100%;
+            padding: 8px;
+            margin-top: 5px;
+            border-radius: 4px;
+            border: 1px solid #ccc;
+        }
+
+        /* ========== Tags & Price ========== */
+        .tag {
+            display: inline-block;
+            background: #e9ecef;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 12px;
+            margin-right: 5px;
+        }
+
+        .price {
+            margin-top: 10px;
+            font-size: 18px;
+            font-weight: bold;
+            color: {{ price_color | default("#28a745") }};
+        }
+
+        /* ========== Alerts ========== */
+        {% for name, color in alert_colors.items() %}
+        .alert-{{ name }} {
+            background-color: {{ color }};
+            padding: 12px;
+            border-radius: 5px;
+            color: white;
+            margin-top: 15px;
+        }
+        {% endfor %}
+
+        /* ========== Dark Mode ========== */
+        {% if dark_mode %}
+        body.dark-mode {
+            background-color: #222;
+            color: #ddd;
+        }
+
+        .card.dark-mode {
+            background-color: #333;
+            border-color: #444;
+        }
+        {% endif %}
+    </style>
+</head>
+
+<body>
+
+{% if show_header %}
+<header>
+    <nav>
+        <ul>
+            <li><a href="/">Home</a></li>
+
+            {% for item in menu_items %}
+            <li><a href="{{ item.url }}">{{ item.title }}</a></li>
+            {% endfor %}
+
+            {% if current_user %}
+            <li>Welcome, {{ current_user.name }}</li>
+            <li><a href="/logout">Logout</a></li>
+            {% else %}
+            <li><a href="/login">Login</a></li>
+            {% endif %}
+        </ul>
+    </nav>
+
+    <h1 style="margin-top:15px;">
+        {{ page_title }}
+    </h1>
+
+    {% for message in get_flashed_messages() %}
+    <div class="alert-info">
+        {{ message }}
+    </div>
+    {% endfor %}
+</header>
+{% endif %}
+
+<main class="container">
+    {% block content %}
+    <!-- Child templates render here -->
+    {% endblock %}
+</main>
+
+<footer>
+    © {{ current_year | default(2025) }} – My Flask App
+</footer>
+
+</body>
+</html>
