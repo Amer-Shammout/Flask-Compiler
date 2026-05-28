@@ -228,7 +228,12 @@ trailer
     ;
 
 arguments
-    : expr (COMMA expr)*
+    : argument (COMMA argument)* COMMA?
+    ;
+
+argument
+    : IDENTIFIER ASSIGN expr                    # KeywordArgument
+    | expr                                      # PositionalArgument
     ;
 
 // ======================================================

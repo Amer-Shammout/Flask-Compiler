@@ -3,35 +3,38 @@ package SymbolTable;
 import AST.ASTNode;
 import AST.Program;
 import AST.SourceRange;
-import AST.expr.AttributeExpr;
-import AST.expr.BinaryExpr;
-import AST.expr.CallExpr;
-import AST.expr.CompareExpr;
-import AST.expr.Expression;
-import AST.expr.IdentifierExpr;
-import AST.expr.IndexExpr;
-import AST.expr.LambdaExpr;
-import AST.expr.NotExpr;
-import AST.expr.UnaryExpr;
-import AST.literal.ListLiteralExpr;
-import AST.literal.LiteralExpr;
-import AST.literal.SetLiteralExpr;
-import AST.stmt.AssignmentChainStmt;
-import AST.stmt.AssignmentStmt;
-import AST.stmt.ClassDefStmt;
-import AST.stmt.DecoratedStmt;
-import AST.stmt.DelStmt;
-import AST.stmt.ExpressionStmt;
-import AST.stmt.ForStmt;
-import AST.stmt.FromImportStmt;
-import AST.stmt.FunctionDefStmt;
-import AST.stmt.IfStmt;
-import AST.stmt.ReturnStmt;
-import AST.stmt.Statement;
-import AST.stmt.WhileStmt;
-import AST.suite.BlockSuite;
-import AST.suite.InlineSuite;
-import AST.suite.Suite;
+import AST.flask.expr.Argument;
+import AST.flask.expr.AttributeExpr;
+import AST.flask.expr.BinaryExpr;
+import AST.flask.expr.CallExpr;
+import AST.flask.expr.CompareExpr;
+import AST.flask.expr.Expression;
+import AST.flask.expr.IdentifierExpr;
+import AST.flask.expr.IndexExpr;
+import AST.flask.expr.KeywordArgument;
+import AST.flask.expr.LambdaExpr;
+import AST.flask.expr.NotExpr;
+import AST.flask.expr.PositionalArgument;
+import AST.flask.expr.UnaryExpr;
+import AST.flask.literal.ListLiteralExpr;
+import AST.flask.literal.LiteralExpr;
+import AST.flask.literal.SetLiteralExpr;
+import AST.flask.stmt.AssignmentChainStmt;
+import AST.flask.stmt.AssignmentStmt;
+import AST.flask.stmt.ClassDefStmt;
+import AST.flask.stmt.DecoratedStmt;
+import AST.flask.stmt.DelStmt;
+import AST.flask.stmt.ExpressionStmt;
+import AST.flask.stmt.ForStmt;
+import AST.flask.stmt.FromImportStmt;
+import AST.flask.stmt.FunctionDefStmt;
+import AST.flask.stmt.IfStmt;
+import AST.flask.stmt.ReturnStmt;
+import AST.flask.stmt.Statement;
+import AST.flask.stmt.WhileStmt;
+import AST.flask.suite.BlockSuite;
+import AST.flask.suite.InlineSuite;
+import AST.flask.suite.Suite;
 import semantic.diagnostics.ResolutionStatus;
 
 import java.util.List;
@@ -361,8 +364,12 @@ public class FlaskSymbolTableBuilder extends SymbolTableBuilder {
             }
             case CallExpr call -> {
                 resolveExpression(call.getFunction());
-                for (Expression argument : call.getArguments()) {
-                    resolveExpression(argument);
+                for (Argument argument : call.getArguments()) {
+                    if (argument instanceof KeywordArgument keyword) {
+                        resolveExpression(keyword.getValue());
+                    } else if (argument instanceof PositionalArgument positional) {
+                        resolveExpression(positional.getValue());
+                    }
                 }
             }
             case AttributeExpr attribute -> resolveExpression(attribute.getBase());

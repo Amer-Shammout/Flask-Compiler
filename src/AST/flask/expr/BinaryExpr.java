@@ -1,0 +1,50 @@
+package AST.flask.expr;
+
+import AST.ASTNode;
+import AST.SourceRange;
+
+import java.util.ArrayList;
+import java.util.List;
+
+public class BinaryExpr extends Expression {
+
+    private Expression left;
+    private String operator;
+    private Expression right;
+
+    // TODO(George): Add SourceRange to constructor and store it via ASTNode.
+    public BinaryExpr(Expression left, String operator, Expression right, SourceRange sourceRange) {
+        super("BinaryExpr", sourceRange);
+        this.left = left;
+        this.operator = operator;
+        this.right = right;
+    }
+
+    public Expression getLeft() {
+        return left;
+    }
+
+    public String getOperator() {
+        return operator;
+    }
+
+    // TODO(George): Ensure every AST node exposes getters for its fields.
+    public Expression getRight() {
+        return right;
+    }
+
+    @Override
+    public List<ASTNode> getChildren() {
+        List<ASTNode> children = new ArrayList<>();
+        if (left != null) children.add(left);
+        if (right != null) children.add(right);
+        return children;
+    }
+
+    // TODO(George): Modify toString for all AST nodes.
+    @Override
+    public String toString() {
+        return "BinaryExpr{operator='" + operator + "'} " + formatLocation();
+    }
+
+}

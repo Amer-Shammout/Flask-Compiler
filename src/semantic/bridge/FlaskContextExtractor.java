@@ -2,12 +2,15 @@ package semantic.bridge;
 
 import AST.ASTNode;
 import AST.Program;
-import AST.expr.AttributeExpr;
-import AST.expr.CallExpr;
-import AST.expr.Expression;
-import AST.expr.IdentifierExpr;
-import AST.expr.IndexExpr;
-import AST.literal.StringLiteralExpr;
+import AST.flask.expr.Argument;
+import AST.flask.expr.AttributeExpr;
+import AST.flask.expr.CallExpr;
+import AST.flask.expr.Expression;
+import AST.flask.expr.IdentifierExpr;
+import AST.flask.expr.IndexExpr;
+import AST.flask.expr.KeywordArgument;
+import AST.flask.expr.PositionalArgument;
+import AST.flask.literal.StringLiteralExpr;
 
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
@@ -73,14 +76,19 @@ public final class FlaskContextExtractor {
     }
 
     public static RenderTemplateCall toRenderTemplateCall(CallExpr call) {
-        List<Expression> arguments = call.getArguments();
+        List<Argument> arguments = call.getArguments();
         String templateName = "";
         Set<String> contextNames = new LinkedHashSet<>();
 
         if (!arguments.isEmpty()) {
-            templateName = extractTemplateName(arguments.get(0)).orElse("");
-            for (int i = 1; i < arguments.size(); i++) {
-                extractContextVariableName(arguments.get(i)).ifPresent(contextNames::add);
+            Argument first = arguments.get(0);
+            int startIndex = 0;
+            if (first instanceof PositionalArgument positional) {
+                templateName = extractTemplateName(positional.getValue()).orElse("");
+                startIndex = 1;
+            }
+            for (int i = startIndex; i < arguments.size(); i++) {
+                collectContextName(arguments.get(i)).ifPresent(contextNames::add);
             }
         }
 
@@ -105,6 +113,16 @@ public final class FlaskContextExtractor {
         if (expression instanceof IndexExpr index
                 && index.getBase() instanceof IdentifierExpr base) {
             return Optional.of(base.getName());
+        }
+        return Optional.empty();
+    }
+
+    private static Optional<String> collectContextName(Argument argument) {
+        if (argument instanceof KeywordArgument keyword) {
+            return Optional.of(keyword.getName());
+        }
+        if (argument instanceof PositionalArgument positional) {
+            return extractContextVariableName(positional.getValue());
         }
         return Optional.empty();
     }
