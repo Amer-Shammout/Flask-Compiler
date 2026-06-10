@@ -95,4 +95,47 @@ public class FlaskSymbolTable extends AbstractSymbolTable {
             }
         }
     }
+
+    /**
+     * Find the deepest (most-nested) symbol with the given name inside this FlaskSymbolTable.
+     * Returns Optional.empty() if not found.
+     *
+     * This method traverses the children scopes and prefers symbols defined in deeper nested
+     * scopes (to honor shadowing).
+     */
+    public Optional<Symbol> findDeepest(String name) {
+        if (name == null || name.isBlank()) return Optional.empty();
+        Result r = findDeepestHelper(this, name, 0);
+        return Optional.ofNullable(r.best);
+    }
+
+    // Helper result carrying best symbol and its depth
+    private static final class Result {
+        private Symbol best = null;
+        private int depth = -1;
+    }
+
+    // Recursive helper: search current table and children; prefer larger depth (more nested)
+    private static Result findDeepestHelper(ISymbolTable table, String name, int depth) {
+        Result res = new Result();
+
+        // Check local first via public API (respects per-table case sensitivity implementation)
+        Optional<Symbol> local = table.lookupLocal(name);
+        if (local.isPresent()) {
+            res.best = local.get();
+            res.depth = depth;
+        }
+
+        // If we can access children (we are in same package and table might be AbstractSymbolTable)
+        if (table instanceof AbstractSymbolTable abstractTable) {
+            for (ISymbolTable child : abstractTable.children) {
+                Result childRes = findDeepestHelper(child, name, depth + 1);
+                if (childRes.best != null && childRes.depth > res.depth) {
+                    res = childRes;
+                }
+            }
+        }
+
+        return res;
+    }
 }

@@ -10,16 +10,27 @@ import SymbolTable.ISymbolTable;
 import SymbolTable.SymbolTableRepository;
 import SymbolTable.TemplateSymbolTable;
 import SymbolTable.TemplateSymbolTableBuilder;
-import semantic.bridge.TemplateContextBridge;
+import org.antlr.v4.runtime.tree.ParseTree;
+import semantic.analyzers.SemanticAnalysisPipeline;
+import semantic.diagnostics.ColoredLogger;
 import semantic.diagnostics.DiagnosticCollector;
+import semantic.diagnostics.Diagnostic;
+import semantic.diagnostics.ErrorCode;
 import antlr.FlaskLexer;
 import antlr.FlaskParser;
 import antlr.TemplateLexer;
 import antlr.TemplateParser;
-import org.antlr.v4.runtime.CharStream;
-import org.antlr.v4.runtime.CharStreams;
-import org.antlr.v4.runtime.CommonTokenStream;
 
+import org.antlr.v4.runtime.*;
+import org.antlr.v4.runtime.tree.*;
+
+import javax.swing.*;
+import javax.swing.tree.DefaultMutableTreeNode;
+import javax.swing.tree.DefaultTreeModel;
+import javax.swing.tree.DefaultTreeCellRenderer;
+import javax.swing.tree.TreePath;
+
+import java.awt.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -31,22 +42,33 @@ import java.util.Scanner;
 
 public class Main {
 
-    // Default input locations. Change these in one place when switching test data.
-    private static final Path DEFAULT_FLASK_SOURCE = Paths.get("src/Tests/Flask/keyword-args-test.py").toAbsolutePath().normalize();
-    private static final Path DEFAULT_TEMPLATE_SOURCE = Paths.get("src/Tests/Template/template1.html").toAbsolutePath().normalize();
+    private static final Path DEFAULT_FLASK_SOURCE = Paths.get("src/Tests/FinalTests/app.py").toAbsolutePath().normalize();
+    private static final Path DEFAULT_TEMPLATE_SOURCE = Paths.get("src/Tests/FinalTests/products.html").toAbsolutePath().normalize();
     private static final Path DEFAULT_TEMPLATE_DIRECTORY = Paths.get("src/Tests/FinalTests").toAbsolutePath().normalize();
     private static final String FLASK_AST_OUTPUT = "ast-flask.dot";
     private static final String TEMPLATE_AST_OUTPUT = "ast-template.dot";
 
     private enum Mode {
-        FLASK_ONLY,
-        TEMPLATE_ONLY,
-        FLASK_AND_TEMPLATES
+        FLASK_ONLY, TEMPLATE_ONLY, FLASK_AND_TEMPLATES
+    }
+
+    static class NodeData {
+        String label;
+        ParseTree tree;
+
+        NodeData(String label, ParseTree tree) {
+            this.label = label;
+            this.tree = tree;
+        }
+
+        @Override
+        public String toString() {
+            return label;
+        }
     }
 
     public static void main(String[] args) throws Exception {
         Mode mode = args.length > 0 ? parseMode(args[0]) : askMode();
-
         switch (mode) {
             case FLASK_ONLY -> runFlaskOnly(args);
             case TEMPLATE_ONLY -> runTemplateOnly(args);
@@ -65,11 +87,14 @@ public class Main {
     }
 
     private static Mode askMode() {
+        System.out.println("\n╔════════════════════════════════════════════════════════════╗");
+        System.out.println("║                Flask Compiler - Execution Mode             ║");
+        System.out.println("╚════════════════════════════════════════════════════════════╝\n");
         System.out.println("Choose execution mode:");
-        System.out.println("1) Flask only");
-        System.out.println("2) Template only");
-        System.out.println("3) Flask + templates");
-        System.out.print("Enter choice: ");
+        System.out.println("  1) Flask only (with TypeError detection)");
+        System.out.println("  2) Flask + single template (with cross-context type checking)");
+        System.out.println("  3) Flask + all templates (with cross-context type checking)");
+        System.out.print("\nEnter choice (1-3): ");
 
         try (Scanner scanner = new Scanner(System.in)) {
             String choice = scanner.nextLine().trim();
@@ -77,64 +102,374 @@ public class Main {
         }
     }
 
+    /**
+     * ════════════════════════════════════════════════════════════════════════════════
+     * MODE 1: Flask Only
+     * ════════════════════════════════════════════════════════════════════════════════
+     * <p>
+     * Flow:
+     * 1. Parse Flask
+     * 2. Build Flask Symbol Table          ← ONCE PER PIPELINE
+     * 3. Run Flask Semantic Pipeline       ← Phase 1 only
+     * <p>
+     * NOTE: Symbol table is built exactly ONCE, then passed to analyzer.
+     * Analyzer does NOT build again.
+     */
     private static void runFlaskOnly(String[] args) throws Exception {
         Path flaskPath = resolvePath(args, 1, DEFAULT_FLASK_SOURCE);
+
+        System.out.println("\n╔════════════════════════════════════════════════════════════╗");
+        System.out.println("║                      Flask Compilation                     ║");
+        System.out.println("╚════════════════════════════════════════════════════════════╝\n");
+        System.out.println("📂 Source File: " + flaskPath.getFileName());
+        System.out.println("📍 Path: " + flaskPath);
+
+        // ════════════════════════════════════════════════════════════════════════════════
+        // Step 1: Parse Flask
+        // ════════════════════════════════════════════════════════════════════════════════
         Program program = parseFlask(flaskPath);
 
+        System.out.println("\n" + "═".repeat(70));
+        System.out.println("🌿 Step 1: AST Generation");
+        System.out.println("═".repeat(70));
+        System.out.println("🚀 AST Parsing Status: Completed Successfully.");
+
         ASTGraphvizPrinter.print(program, FLASK_AST_OUTPUT);
-        processFlaskSymbolTable(program, flaskPath);
+        System.out.println("📝 Visualization saved to: " + FLASK_AST_OUTPUT);
+
+        // ════════════════════════════════════════════════════════════════════════════════
+        // Step 2: Build Flask Symbol Table (ONCE - BEFORE semantic pipeline)
+        // ════════════════════════════════════════════════════════════════════════════════
+        System.out.println("\n" + "═".repeat(70));
+        System.out.println("📊 Step 2: Flask Symbol Table Building");
+        System.out.println("═".repeat(70) + "\n");
+
+        SymbolTableRepository repository = new SymbolTableRepository(new FlaskSymbolTable("flask-global", flaskPath.toString()), new TemplateSymbolTable("template-global", null));
+
+        FlaskSymbolTableBuilder flaskBuilder = new FlaskSymbolTableBuilder(repository);
+        flaskBuilder.build(program);
+
+        System.out.println("📌 [Flask Global Table Summary]:");
+        System.out.println(repository.getFlaskGlobal());
+        System.out.println("\n🔍 [Reference Index Report]:");
+        System.out.println(flaskBuilder.getReferenceIndex().formatReport());
+
+        // ════════════════════════════════════════════════════════════════════════════════
+        // Step 3: Run Flask Semantic Analysis Pipeline (Phase 1 only)
+        // ═════════════════════════════════��══════════════════════════════════════════════
+        System.out.println("\n" + "═".repeat(70));
+        System.out.println("🛡️  Step 3: Flask Semantic Analysis");
+        System.out.println("═".repeat(70) + "\n");
+
+        DiagnosticCollector diagnostics = new DiagnosticCollector();
+        SemanticAnalysisPipeline pipeline = new SemanticAnalysisPipeline(repository, diagnostics, flaskBuilder);
+
+        // Phase 1: Flask analysis (NO symbol table building here!)
+        pipeline.analyzeFlaskOnly(program);
+
+        System.out.println("\n📋 [Diagnostic Summary Report]:");
+        // Use the collector's reportAll() which delegates to ColoredLogger (centralized formatting)
+        diagnostics.reportAll();
+        System.out.println("\n" + "═".repeat(70) + "\n");
     }
 
+    /**
+     * ═══════════════════════════════════════════════════���════════════════════════════
+     * MODE 2: Flask + Single Template with Bridge
+     * ════════════════════════════════════════════════════════════════════════════════
+     * <p>
+     * Flow:
+     * Phase 1: Flask analysis
+     * 1.1. Parse Flask
+     * 1.2. Build Flask Symbol Table            ← ONCE, BEFORE pipeline
+     * 1.3. Run Flask semantic checks
+     * <p>
+     * Phase 2: Template analysis
+     * 2.1. Parse Template
+     * 2.2. Build Template Symbol Table         ← ONCE, BEFORE pipeline
+     * 2.3. Run Template semantic checks
+     * <p>
+     * Phase 3: Cross-context bridging
+     * 3.1. Run Flask ↔ Template bridge
+     * <p>
+     * CRITICAL: Symbol tables are built in Main, NOT inside analyzers!
+     */
     private static void runTemplateOnly(String[] args) throws Exception {
         Path templatePath = resolvePath(args, 1, DEFAULT_TEMPLATE_SOURCE);
+
+        System.out.println("\n╔════════════════════════════════════════════════════════════╗");
+        System.out.println("║          Flask + Template Analysis Mode (Case 2)           ║");
+        System.out.println("╚════════════════════════════════════════════════════════════╝\n");
+        System.out.println("📂 Template File: " + templatePath.getFileName());
+        System.out.println("📂 Flask File: " + DEFAULT_FLASK_SOURCE.getFileName());
+        System.out.println("📍 Template Path: " + templatePath);
+        System.out.println("📍 Flask Path: " + DEFAULT_FLASK_SOURCE);
+
+        // ════════════════════════════════════════════════════════════════════════════════
+        // PHASE 1: Parse Flask & Build Symbol Table
+        // ════════════════════════════════════════════════════════════════════════════════
+        System.out.println("\n" + "═".repeat(70));
+        System.out.println("⚙️  Phase 1: Flask Parsing & Symbol Table Building");
+        System.out.println("═".repeat(70));
+
+        Program flaskProgram = parseFlask(DEFAULT_FLASK_SOURCE);
+        System.out.println("✓ Flask parsed successfully");
+
+        FlaskSymbolTable flaskTable = new FlaskSymbolTable("flask-global", DEFAULT_FLASK_SOURCE.toString());
+        SymbolTableRepository repository = new SymbolTableRepository(flaskTable, new TemplateSymbolTable("template-global", null));
+
+        System.out.println("🔨 Building Flask symbol table...");
+        FlaskSymbolTableBuilder flaskBuilder = new FlaskSymbolTableBuilder(repository);
+        flaskBuilder.build(flaskProgram);
+
+        System.out.println("✓ Flask symbol table built\n");
+        System.out.println("📌 [Flask Table Summary]:");
+        System.out.println(flaskTable);
+        System.out.println("\n🔍 [Flask Reference Index Report]:");
+        System.out.println(flaskBuilder.getReferenceIndex().formatReport());
+
+        // ════════════════════════════════════════════════════════════════════════════════
+        // PHASE 1b: Run Flask Semantic Analysis (populate types)
+        // ════════════════════════════════════════════════════════════════════════════════
+        System.out.println("\n" + "─".repeat(70));
+        System.out.println("→ Running Flask Semantic Analysis (populates Symbol.inferredType)");
+        System.out.println("─".repeat(70));
+
+        DiagnosticCollector flaskDiagnostics = new DiagnosticCollector();
+        SemanticAnalysisPipeline flaskPipeline = new SemanticAnalysisPipeline(repository, flaskDiagnostics);
+        flaskPipeline.analyzeFlaskOnly(flaskProgram);
+
+        System.out.println("✓ Flask semantic analysis complete - types now in Symbol Table\n");
+
+        // ════════════════════════════════════════════════════════════════════════════════
+        // PHASE 2: Parse Template & Build Symbol Table
+        // ════════════════════════════════════════════════════════════════════════════════
+        System.out.println("═".repeat(70));
+        System.out.println("⚙️  Phase 2: Template Parsing & Symbol Table Building");
+        System.out.println("═".repeat(70));
+
         ASTNode root = parseTemplate(templatePath);
 
+        System.out.println("\n" + "═".repeat(70));
+        System.out.println("🌿 Template AST Generation");
+        System.out.println("═".repeat(70));
         ASTGraphvizPrinter.print(root, TEMPLATE_AST_OUTPUT);
-        processTemplateSymbolTable(root, templatePath);
+        System.out.println("📝 Template AST saved to: " + TEMPLATE_AST_OUTPUT);
+
+        System.out.println("\n" + "═".repeat(70));
+        System.out.println("📊 Template Symbol Table Processing");
+        System.out.println("═".repeat(70) + "\n");
+
+        String templateName = templatePath.getFileName().toString();
+        // CRITICAL: Create new repository with Flask table (already typed) + new Template table
+        repository = new SymbolTableRepository(flaskTable,  // Reuse Flask table with populated types
+                new TemplateSymbolTable("template-global", templateName));
+
+        System.out.println("🔨 Building template symbol table...");
+        TemplateSymbolTableBuilder templateBuilder = new TemplateSymbolTableBuilder(repository);
+        ISymbolTable symbolTable = templateBuilder.buildTemplate(root);
+
+        System.out.println("✓ Template symbol table built\n");
+        System.out.println("📌 [Template Symbol Table Summary]:");
+        System.out.println(symbolTable);
+        System.out.println("\n🔍 [Template Reference Index]:");
+        System.out.println(templateBuilder.getReferenceIndex().formatReport());
+
+        // ════════════════════════════════════════════════════════════════════════════════
+        // PHASE 2b: Run Template Semantic Analysis (uses Flask types)
+        // ════════════════════════════════════════════════════════════════════════════════
+        System.out.println("\n" + "─".repeat(70));
+        System.out.println("→ Running Template Semantic Analysis");
+        System.out.println("─".repeat(70));
+
+        DiagnosticCollector templateDiagnostics = new DiagnosticCollector();
+        SemanticAnalysisPipeline templatePipeline = new SemanticAnalysisPipeline(repository, templateDiagnostics);
+
+        if (root instanceof TemplateNode templateRoot) {
+            templatePipeline.analyzeTemplateOnly(templateRoot, templateBuilder.getReferenceIndex());
+            System.out.println("✓ Template semantic analysis complete\n");
+
+            // ════════════════════════════════════════════════════════════════════════════════
+            // PHASE 3: Cross-Context Bridge Analysis
+            // ════════════════════════════════════════════════════��═══════════════════════════
+            System.out.println("═".repeat(70));
+            System.out.println("🛡️  Phase 3: Cross-Context Bridge Analysis");
+            System.out.println("═".repeat(70));
+
+            System.out.println("🔗 Running Flask ↔ Template bridge (cross-context type checking)...\n");
+            templatePipeline.bridgeTemplateWithFlask(flaskProgram, templateRoot, templateBuilder.getReferenceIndex());
+
+            System.out.println("✓ Cross-context type checking complete");
+            System.out.println("\n🔗 [Context Bridge Integration]:");
+            System.out.println(templatePipeline.getContextBridge().formatReport());
+        } else {
+            templateDiagnostics.addDiagnostic(new Diagnostic(null, ErrorCode.H001_SUGGESTION, "Template semantic analysis skipped: Template root is not a TemplateNode.", "Ensure parser/visitor produces a TemplateNode."));
+        }
+
+        // ════════════════════════════════════════════════════════════════════════════════
+        // Display all diagnostics
+        // ════════════════════════════════════════════════════════════════════════════════
+        System.out.println("\n📋 [Diagnostic Summary Report]:");
+        System.out.println("\n" + "═".repeat(70));
+        System.out.println(ColoredLogger.color("semantic.diagnostics.ColoredLogger", "36;1", "📊 Flask Diagnostics"));
+        System.out.println("═".repeat(70));
+        // Use collector's centralized reporting (which uses ColoredLogger internally)
+        flaskDiagnostics.reportAll();
+
+        System.out.println("\n" + "═".repeat(70));
+        System.out.println(ColoredLogger.color("semantic.diagnostics.ColoredLogger", "36;1", "📊 Template: " + templatePath.getFileName() + " Diagnostics"));
+        System.out.println("═".repeat(70));
+        templateDiagnostics.reportAll();
+
+        System.out.println("\n" + "═".repeat(70) + "\n");
     }
 
+    /**
+     * ════════════════════════════════════════════════════════════════════════════════
+     * MODE 3: Flask + All Templates with Bridge
+     * ════════════════════════════════════════════════════════════════════════════════
+     * <p>
+     * Flow:
+     * PHASE 1: Flask analysis (runs ONCE)
+     * 1.1. Parse Flask
+     * 1.2. Build Flask Symbol Table            ← ONCE, shared across all templates
+     * 1.3. Run Flask semantic checks
+     * <p>
+     * FOR EACH TEMPLATE:
+     * PHASE 2: Template analysis
+     * 2.1. Parse Template
+     * 2.2. Build Template Symbol Table (fresh)  ← Per template
+     * 2.3. Run Template semantic checks
+     * <p>
+     * PHASE 3: Cross-context bridging
+     * 3.1. Run Flask ↔ This Template bridge
+     * <p>
+     * CRITICAL: Flask analysis happens ONCE, templates reuse Flask types!
+     */
     private static void runCombined(String[] args) throws Exception {
         Path flaskPath = resolvePath(args, 1, DEFAULT_FLASK_SOURCE);
         List<Path> templatePaths = resolveTemplatePaths(args);
 
+        System.out.println("\n╔════════════════════════════════════════════════════════════╗");
+        System.out.println("║             Combined Execution: Flask + Templates          ║");
+        System.out.println("╚════════════════════════════════════════════════════════════╝\n");
+        System.out.println("📂 Base Flask File: " + flaskPath.getFileName());
+        System.out.println("📁 Templates Found: " + templatePaths.size() + " file(s)");
+
+        // ════════════════════════════════════════════════════════════════════════════════
+        // PHASE 1: Flask Parsing & Symbol Table Building (HAPPENS ONCE)
+        // ════════════════════════════════════════════════════════════════════════════════
+        System.out.println("\n" + "═".repeat(70));
+        System.out.println("⚙️  Phase 1: Flask Parsing & Symbol Table Building");
+        System.out.println("═".repeat(70));
+
         Program flaskProgram = parseFlask(flaskPath);
         ASTGraphvizPrinter.print(flaskProgram, FLASK_AST_OUTPUT);
+        System.out.println("📝 Base Flask AST saved to: " + FLASK_AST_OUTPUT);
 
         FlaskSymbolTable flaskTable = new FlaskSymbolTable("flask-global", flaskPath.toString());
-        SymbolTableRepository flaskOnlyRepo = new SymbolTableRepository(
-                flaskTable,
-                new TemplateSymbolTable("template-global", null)
-        );
-        FlaskSymbolTableBuilder flaskBuilder = new FlaskSymbolTableBuilder(flaskOnlyRepo);
+        SymbolTableRepository repository = new SymbolTableRepository(flaskTable, new TemplateSymbolTable("template-global", null));
+
+        System.out.println("🔨 Building Flask symbol table...");
+        FlaskSymbolTableBuilder flaskBuilder = new FlaskSymbolTableBuilder(repository);
         flaskBuilder.build(flaskProgram);
+
+        System.out.println("✓ Flask symbol table built\n");
+        System.out.println("📌 [Flask Table Context]:");
         System.out.println(flaskTable);
+        System.out.println("\n🔍 [Flask Reference Index Report]:");
         System.out.println(flaskBuilder.getReferenceIndex().formatReport());
 
+        // ════════════════════════════════════════════════════════════════════════════════
+        // PHASE 1b: Run Flask Semantic Analysis ONCE (populate types for all templates)
+        // ════════════════════════════════════════════════════════════════════════════════
+        System.out.println("\n" + "─".repeat(70));
+        System.out.println("→ Running Flask Semantic Analysis (populates types for all templates)");
+        System.out.println("─".repeat(70));
+
+        DiagnosticCollector globalFlaskDiagnostics = new DiagnosticCollector();
+        SemanticAnalysisPipeline flaskPipeline = new SemanticAnalysisPipeline(repository, globalFlaskDiagnostics);
+        flaskPipeline.analyzeFlaskOnly(flaskProgram);
+
+        System.out.println("✓ Flask type inference complete - Symbol Table ready for templates\n");
+
+        // ════════════════════════════════════════════════════════════════════════════════
+        // FOR EACH TEMPLATE: Parse, Build, Analyze, Bridge
+        // ════════════════════════════════════════════════════════════════════════════════
+        System.out.println("═".repeat(70));
+        System.out.println("⚙️  Phase 2+3: Processing Associated Template Files");
+        System.out.println("═".repeat(70));
+
+        List<DiagnosticCollector> templateDiagnosticsList = new ArrayList<>();
+        List<String> templateNamesList = new ArrayList<>();
+        int index = 1;
+
         for (Path templatePath : templatePaths) {
+            System.out.println("\n" + "─".repeat(50));
+            System.out.println("📄 [" + index++ + "/" + templatePaths.size() + "] Processing: " + templatePath.getFileName());
+            System.out.println("─".repeat(50));
+
+            // Parse template
             ASTNode root = parseTemplate(templatePath);
             String outputName = "ast-" + safeFileStem(templatePath) + ".dot";
             ASTGraphvizPrinter.print(root, outputName);
+            System.out.println("📝 Template AST graph saved as: " + outputName);
 
+            // Build template symbol table (fresh, per template)
             String templateName = templatePath.getFileName().toString();
-            SymbolTableRepository repo = new SymbolTableRepository(
-                    flaskTable,
-                    new TemplateSymbolTable("template-global", templateName)
-            );
-            TemplateSymbolTableBuilder templateBuilder = new TemplateSymbolTableBuilder(repo);
+            SymbolTableRepository templateRepository = new SymbolTableRepository(flaskTable,  // Reuse Flask table (already typed from Phase 1)
+                    new TemplateSymbolTable("template-global", templateName));
+
+            System.out.println("🔨 Building template symbol table...");
+            TemplateSymbolTableBuilder templateBuilder = new TemplateSymbolTableBuilder(templateRepository);
             templateBuilder.buildTemplate(root);
-            System.out.println(repo.getTemplateGlobal());
+
+            System.out.println("✓ Template symbol table built\n");
+            System.out.println("📊 [Template Local Table]:");
+            System.out.println(templateRepository.getTemplateGlobal());
+            System.out.println("\n🔍 [Template Reference Index]:");
             System.out.println(templateBuilder.getReferenceIndex().formatReport());
 
-            TemplateContextBridge bridge = new TemplateContextBridge(repo, new DiagnosticCollector());
-            bridge.bridge(
-                    flaskProgram,
-                    (TemplateNode) root,
-                    flaskBuilder.getReferenceIndex(),
-                    templateBuilder.getReferenceIndex());
-            System.out.println(bridge.formatReport());
+            // Semantic analysis for this template
+            DiagnosticCollector diagnostics = new DiagnosticCollector();
+            SemanticAnalysisPipeline templatePipeline = new SemanticAnalysisPipeline(templateRepository, diagnostics);
+
+            if (root instanceof TemplateNode templateRoot) {
+                System.out.println("→ Template Semantic Analysis");
+                templatePipeline.analyzeTemplateOnly(templateRoot, templateBuilder.getReferenceIndex());
+
+                System.out.println("→ Flask-Template Bridge (Cross-Context Type Checking)");
+                templatePipeline.bridgeTemplateWithFlask(flaskProgram, templateRoot, templateBuilder.getReferenceIndex());
+
+                System.out.println("\n🔗 [Context Bridge Integration]:");
+                System.out.println(templatePipeline.getContextBridge().formatReport());
+            } else {
+                diagnostics.addDiagnostic(new Diagnostic(null, ErrorCode.H001_SUGGESTION, "Template semantic analysis skipped: Template root is not a TemplateNode.", "Ensure parser/visitor produces a TemplateNode."));
+            }
+
+            templateDiagnosticsList.add(diagnostics);
+            templateNamesList.add(templateName);
         }
 
-        System.out.println("Combined mode finished: Flask file + " + templatePaths.size() + " template file(s).");
+        // ════════════════════════════════════════════════════════════════════════════════
+        // Display all diagnostics: Flask first, then each template
+        // ════════════════════════════════════════════════════════════════════════════════
+        System.out.println("\n" + "═".repeat(70));
+        System.out.println(ColoredLogger.color("semantic.diagnostics.ColoredLogger", "36;1", "📊 Flask Diagnostics"));
+        System.out.println("═".repeat(70));
+        // Use centralized collector reporting (which uses ColoredLogger internally)
+        globalFlaskDiagnostics.reportAll();
+
+        for (int i = 0; i < templateDiagnosticsList.size(); i++) {
+            System.out.println("\n" + "═".repeat(70));
+            System.out.println(ColoredLogger.color("semantic.diagnostics.ColoredLogger", "36;1", "📊 Template: " + templateNamesList.get(i) + " Diagnostics"));
+            System.out.println("═".repeat(70));
+            templateDiagnosticsList.get(i).reportAll();
+        }
+
+        System.out.println("\n" + "═".repeat(70));
+        System.out.println("✨ Combined execution successfully finished for Flask and " + templatePaths.size() + " templates.");
+        System.out.println("═".repeat(70) + "\n");
     }
 
     private static Program parseFlask(Path path) throws Exception {
@@ -142,8 +477,11 @@ public class Main {
         FlaskLexer lexer = new FlaskLexer(input);
         CommonTokenStream tokens = new CommonTokenStream(lexer);
         FlaskParser parser = new FlaskParser(tokens);
+        ParseTree tree = parser.prog();
+        System.out.println("⏳ Parsing Flask source code syntax tree...");
+        showModernParseTree("Flask Parse Tree", Files.readString(path), tree, parser);
         ProgramVisitor visitor = new ProgramVisitor();
-        return visitor.visitProg(parser.prog());
+        return visitor.visitProg((FlaskParser.ProgContext) tree);
     }
 
     private static ASTNode parseTemplate(Path path) throws Exception {
@@ -151,8 +489,161 @@ public class Main {
         TemplateLexer lexer = new TemplateLexer(input);
         CommonTokenStream tokens = new CommonTokenStream(lexer);
         TemplateParser parser = new TemplateParser(tokens);
+        ParseTree templateTree = parser.template();
+        System.out.println("⏳ Parsing Template source code syntax tree...");
+        showModernParseTree("Template Parse Tree", Files.readString(path), templateTree, parser);
         TemplateVisitor visitor = new TemplateVisitor();
-        return visitor.visitTemplateRoot((TemplateParser.TemplateRootContext) parser.template());
+        return visitor.visitTemplateRoot((TemplateParser.TemplateRootContext) templateTree);
+    }
+
+    private static void showModernParseTree(String title, String code, ParseTree parseTree, Parser parser) {
+        JFrame frame = new JFrame(title);
+        frame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+        frame.setSize(1600, 900);
+
+        Color bg = new Color(30, 30, 30);
+        Color fg = new Color(220, 220, 220);
+
+        JTextArea codeArea = new JTextArea(code);
+        codeArea.setBackground(new Color(25, 25, 25));
+        codeArea.setForeground(Color.WHITE);
+        codeArea.setCaretColor(Color.WHITE);
+        codeArea.setFont(new Font("Consolas", Font.PLAIN, 15));
+        codeArea.setEditable(false);
+
+        JScrollPane codeScroll = new JScrollPane(codeArea);
+
+        JTree tree = new JTree(new DefaultTreeModel(buildNode(parseTree, parser)));
+        tree.setBackground(bg);
+        tree.setForeground(fg);
+        tree.setRowHeight(24);
+        tree.setCellRenderer(new ParseTreeRenderer());
+
+        expandAll(tree);
+
+        JScrollPane treeScroll = new JScrollPane(tree);
+
+        JLabel infoLabel = new JLabel(" Ready");
+
+        JTextField searchField = new JTextField();
+
+        JButton searchBtn = new JButton("Find");
+        JButton expandBtn = new JButton("Expand");
+        JButton collapseBtn = new JButton("Collapse");
+
+        JToolBar toolBar = new JToolBar();
+        toolBar.setFloatable(false);
+        toolBar.add(new JLabel(" Search: "));
+        toolBar.add(searchField);
+        toolBar.add(searchBtn);
+        toolBar.add(expandBtn);
+        toolBar.add(collapseBtn);
+
+        searchBtn.addActionListener(e -> searchNode(tree, searchField.getText().trim().toLowerCase()));
+        expandBtn.addActionListener(e -> expandAll(tree));
+        collapseBtn.addActionListener(e -> {
+            for (int i = tree.getRowCount() - 1; i > 0; i--) tree.collapseRow(i);
+        });
+
+        tree.addTreeSelectionListener(e -> {
+            DefaultMutableTreeNode node = (DefaultMutableTreeNode) tree.getLastSelectedPathComponent();
+            if (node == null) return;
+            Object obj = node.getUserObject();
+            if (!(obj instanceof NodeData data)) return;
+
+            List<Token> tokens = new ArrayList<>();
+            collectTokens(data.tree, tokens);
+
+            if (!tokens.isEmpty()) {
+                int startPos = tokens.get(0).getStartIndex();
+                int stopPos = tokens.get(tokens.size() - 1).getStopIndex() + 1;
+                int len = codeArea.getDocument().getLength();
+                startPos = Math.min(startPos, len);
+                stopPos = Math.min(stopPos, len);
+                codeArea.requestFocus();
+                codeArea.setCaretPosition(startPos);
+                codeArea.moveCaretPosition(stopPos);
+            }
+
+            infoLabel.setText(" Node: " + data.label + " | Children: " + data.tree.getChildCount());
+        });
+
+        JSplitPane split = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, treeScroll, codeScroll);
+        split.setDividerLocation(500);
+
+        JPanel panel = new JPanel(new BorderLayout());
+        panel.add(toolBar, BorderLayout.NORTH);
+        panel.add(split, BorderLayout.CENTER);
+        panel.add(infoLabel, BorderLayout.SOUTH);
+
+        frame.setContentPane(panel);
+        frame.setLocationRelativeTo(null);
+        frame.setVisible(true);
+    }
+
+    static class ParseTreeRenderer extends DefaultTreeCellRenderer {
+        @Override
+        public Component getTreeCellRendererComponent(JTree tree, Object value, boolean selected, boolean expanded, boolean leaf, int row, boolean hasFocus) {
+            super.getTreeCellRendererComponent(tree, value, selected, expanded, leaf, row, hasFocus);
+            setBackgroundNonSelectionColor(new Color(30, 30, 30));
+            setTextNonSelectionColor(Color.WHITE);
+            String text = value.toString();
+            if (text.contains("IDENTIFIER")) setForeground(new Color(0, 255, 180));
+            else if (text.contains("STRING")) setForeground(new Color(255, 200, 0));
+            else if (text.contains("NUMBER")) setForeground(new Color(120, 220, 255));
+            else setForeground(Color.WHITE);
+            return this;
+        }
+    }
+
+    private static void searchNode(JTree tree, String text) {
+        if (text == null || text.isEmpty()) return;
+        DefaultMutableTreeNode root = (DefaultMutableTreeNode) tree.getModel().getRoot();
+        java.util.Enumeration<?> en = root.depthFirstEnumeration();
+        while (en.hasMoreElements()) {
+            DefaultMutableTreeNode node = (DefaultMutableTreeNode) en.nextElement();
+            if (node.toString().toLowerCase().contains(text)) {
+                TreePath path = new TreePath(node.getPath());
+                tree.setSelectionPath(path);
+                tree.scrollPathToVisible(path);
+                return;
+            }
+        }
+    }
+
+    private static DefaultMutableTreeNode buildNode(ParseTree tree, Parser parser) {
+        String label;
+        if (tree instanceof RuleNode r) {
+            label = parser.getRuleNames()[r.getRuleContext().getRuleIndex()];
+        } else if (tree instanceof TerminalNode tn) {
+            Token token = tn.getSymbol();
+            String tokenName = parser.getVocabulary().getSymbolicName(token.getType());
+            String tokenText = token.getText().replace("\n", "\\n").replace("\r", "\\r").replace("\t", "\\t");
+            label = tokenName + " : '" + tokenText + "'";
+        } else {
+            label = tree.getText();
+        }
+        DefaultMutableTreeNode node = new DefaultMutableTreeNode(new NodeData(label, tree));
+        for (int i = 0; i < tree.getChildCount(); i++) {
+            node.add(buildNode(tree.getChild(i), parser));
+        }
+        return node;
+    }
+
+    private static void expandAll(JTree tree) {
+        for (int i = 0; i < tree.getRowCount(); i++) {
+            tree.expandRow(i);
+        }
+    }
+
+    private static void collectTokens(ParseTree tree, List<Token> tokens) {
+        if (tree instanceof TerminalNode tn) {
+            Token tok = tn.getSymbol();
+            if (tok != null) tokens.add(tok);
+        }
+        for (int i = 0; i < tree.getChildCount(); i++) {
+            collectTokens(tree.getChild(i), tokens);
+        }
     }
 
     private static Path resolvePath(String[] args, int index, Path fallback) {
@@ -164,7 +655,6 @@ public class Main {
 
     private static List<Path> resolveTemplatePaths(String[] args) {
         List<Path> paths = new ArrayList<>();
-
         if (args.length > 2) {
             for (int i = 2; i < args.length; i++) {
                 paths.add(Paths.get(args[i]).toAbsolutePath().normalize());
@@ -174,17 +664,13 @@ public class Main {
 
         if (Files.isDirectory(DEFAULT_TEMPLATE_DIRECTORY)) {
             try (var stream = Files.list(DEFAULT_TEMPLATE_DIRECTORY)) {
-                stream.filter(path -> path.toString().endsWith(".html"))
-                        .forEach(paths::add);
+                stream.filter(path -> path.toString().endsWith(".html")).forEach(paths::add);
             } catch (Exception ignored) {
-                // Fall back to an empty list if the directory cannot be scanned.
             }
         }
-
         if (paths.isEmpty()) {
             paths.add(DEFAULT_TEMPLATE_SOURCE);
         }
-
         return paths;
     }
 
@@ -193,33 +679,4 @@ public class Main {
         int dotIndex = fileName.lastIndexOf('.');
         return dotIndex >= 0 ? fileName.substring(0, dotIndex) : fileName;
     }
-
-    private static void processFlaskSymbolTable(Program program, Path sourcePath) {
-        SymbolTableRepository repository = new SymbolTableRepository(
-                new FlaskSymbolTable("flask-global", sourcePath.toString()),
-                new TemplateSymbolTable("template-global", null)
-        );
-        FlaskSymbolTableBuilder builder = new FlaskSymbolTableBuilder(repository);
-        ISymbolTable symbolTable = builder.build(program);
-        System.out.println(symbolTable);
-        System.out.println(builder.getReferenceIndex().formatReport());
-    }
-
-    private static void processTemplateSymbolTable(ASTNode root, Path sourcePath) {
-        String templateName = sourcePath.getFileName().toString();
-        SymbolTableRepository repository = new SymbolTableRepository(
-                new FlaskSymbolTable("flask-global", null),
-                new TemplateSymbolTable("template-global", templateName)
-        );
-        TemplateSymbolTableBuilder builder = new TemplateSymbolTableBuilder(repository);
-        ISymbolTable symbolTable = builder.buildTemplate(root);
-        System.out.println(symbolTable);
-        System.out.println(builder.getReferenceIndex().formatReport());
-    }
-
-    private static void printSymbolTablePlaceholder(String kind, Path sourcePath) {
-        System.out.println("[TODO] " + kind + " symbol table for " + sourcePath.getFileName()
-                + " will be built and printed after Laila implements the builders.");
-    }
 }
-

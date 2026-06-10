@@ -26,7 +26,6 @@ tokens { INDENT, DEDENT }
 
     @Override
     public Token nextToken() {
-        // إذا وصلنا EOF وما زالت هناك مستويات DEDENT
         if (_input.LA(1) == EOF && !indents.isEmpty()) {
 
             for (int i = tokens.size() - 1; i >= 0; i--) {
@@ -81,30 +80,34 @@ tokens { INDENT, DEDENT }
     }
 }
 
-NEWLINE
- : ('\r'? '\n') SPACES?
-   {
-       String newLine = getText().replaceAll("[^\r\n]+", "");
-       String spaces = getText().replaceAll("[\r\n]+", "");
-       emit(commonToken(NEWLINE, newLine));
+ NEWLINE
+  : ('\r'? '\n') SPACES?
+    {
+        String newLine = getText().replaceAll("[^\r\n]+", "");
+        String spaces = getText().replaceAll("[\r\n]+", "");
+        int next = _input.LA(1);
 
-       if (opened == 0) {
-           int indent = getIndentationCount(spaces);
-           int previous = indents.isEmpty() ? 0 : indents.peek();
+        if (opened > 0 || next == '\r' || next == '\n' || next == '#') {
+            skip();
+            return;
+        }
+        emit(commonToken(NEWLINE, newLine));
+        int indent = getIndentationCount(spaces);
+        int previous = indents.isEmpty() ? 0 : indents.peek();
+        if (indent > previous) {
+            indents.push(indent);
+            emit(commonToken(INDENT, spaces));
+        }
+        else if (indent < previous) {
+            while(!indents.isEmpty() && indents.peek() > indent) {
+                emit(createDedent());
+                indents.pop();
+            }
+        }
+    }
+  ;
 
-           if (indent > previous) {
-               indents.push(indent);
-               emit(commonToken(INDENT, spaces));
-           } else if (indent < previous) {
-               while(!indents.isEmpty() && indents.peek() > indent) {
-                   this.emit(createDedent());
-                   indents.pop();
-               }
 
-           }
-       }
-   }
- ;
 fragment SPACES : [ \t]* ;
 
 

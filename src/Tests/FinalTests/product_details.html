@@ -1,37 +1,59 @@
-{% extends "base.html" %}
+<!DOCTYPE html>
 
-{% block content %}
+<html>
+<head>
+    <title>Product Details</title>
+
+    <style>
+        body {
+            font-family: Arial;
+            margin: 20px;
+        }
+
+        .card {
+            border: 1px solid #cccccc;
+            padding: 20px;
+            width: 400px;
+        }
+    </style>
+</head>
+
+<body>
+
+<h1>Product Details</h1>
+
 <div class="card">
-    <h2>{{ product.name }}</h2>
 
-    <p>{{ product.description }}</p>
-
-    <p class="price">
-        ${{ "%.2f"|format(product.price) }}
-    </p>
-
-    {% if product.category %}
     <p>
-        Category: <strong>{{ product.category }}</strong>
+        ID:
+        {{ product.id }}
     </p>
-    {% endif %}
 
-    {% if product.tags %}
-    <div class="tags">
-        {% for tag in product.tags %}
-        <span class="tag">{{ tag }}</span>
-        {% endfor %}
-    </div>
-    {% endif %}
+    <p>
+        Name:
+        {{ product.name }}
+    </p>
 
-    {% if product.in_stock %}
-    <p class="alert-success">Available</p>
-    {% else %}
-    <p class="alert-warning">Currently Unavailable</p>
-    {% endif %}
+    <p>
+        Price:
+        {{ product.price }}
+    </p>
 
-    <a href="/products">
-        <button class="btn-secondary">Back to Products</button>
-    </a>
+    <p>
+        {% if product.in_stock %}
+        Available
+        {% else %}
+        Not Available
+        {% endif %}
+    </p>
+
 </div>
-{% endblock %}
+
+<p>
+    <a href="/products">
+        Back To Products
+    </a>
+</p>
+
+</body>
+</html>

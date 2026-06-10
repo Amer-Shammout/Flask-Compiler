@@ -1,8 +1,10 @@
 <!DOCTYPE html>
-
 <html>
 <head>
     <title>Add Product</title>
+    <h1>{{ "test"+1 }}</h1>
+    <h1>{{ 5() }}</h1>
+    <h1>{{ len(100) }}</h1>
 
     <style>
         body {
@@ -33,13 +35,14 @@
 
 <body>
 
+
 <h1>Add Product</h1>
 
 <form method="POST" action="/products/create">
 
     <label>Name</label>
 
-    <input type="text" name="name">
+    <input  type="text" name="name">
 
     <label>Price</label>
 
@@ -57,5 +60,10 @@
     </a>
 </p>
 
+<div>
+    {% if "test">8 %}
+    <p>OK</p>
+    {% endif %}
+</div>
 </body>
 </html>

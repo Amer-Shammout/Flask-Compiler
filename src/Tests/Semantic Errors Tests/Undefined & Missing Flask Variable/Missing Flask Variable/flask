@@ -1,0 +1,19 @@
+from flask import Flask, render_template
+
+app = Flask(__name__)
+
+@app.route("/products")
+def products():
+    products_list = [
+        "Laptop",
+        "Mouse",
+        "Keyboard"
+    ]
+
+    return render_template(
+        "products.html",
+        #products=products_list
+    )
+
+if __name__ == "__main__":
+    app.run(debug=True)

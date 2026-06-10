@@ -1,8 +1,11 @@
 <!DOCTYPE html>
-
 <html>
 <head>
+    <!--try user in flask with function render_template to this page be "user" or 1 or [1,2]... , then show errors  -->
     <title>Add Product</title>
+    <h1>{{ user+1 }}</h1>
+    <h1>{{ len(user) }}</h1>
+    <h1>{{ user() }}</h1>
 
     <style>
         body {
@@ -33,13 +36,14 @@
 
 <body>
 
+
 <h1>Add Product</h1>
 
 <form method="POST" action="/products/create">
 
     <label>Name</label>
 
-    <input type="text" name="name">
+    <input  type="text" name="name">
 
     <label>Price</label>
 
@@ -57,5 +61,12 @@
     </a>
 </p>
 
+<div>
+    {% if user<1 %}
+    <p>Welcome, Admin!</p>
+    {% else %}
+    <p>Welcome, User!</p>
+    {% endif %}
+</div>
 </body>
 </html>

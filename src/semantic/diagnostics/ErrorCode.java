@@ -2,28 +2,28 @@ package semantic.diagnostics;
 
 /**
  * Enumeration of error codes for diagnostic messages.
- *
+ * <p>
  * Each error code uniquely identifies a class of semantic errors, enabling:
  * - Consistent error reporting and categorization
  * - Easy filtering and grouping of related errors
  * - IDE integration (quick fixes, error suppression by code)
  * - Statistics and error tracking
- *
+ * <p>
  * Error codes follow the pattern: [E|W|I|H]NNN
  * - E: ERROR
  * - W: WARNING
  * - I: INFO
  * - H: HINT
- *
+ * <p>
  * Usage:
- *   Diagnostic diag = new Diagnostic(
- *       sourceRange,
- *       DiagnosticSeverity.ERROR,
- *       "Undefined variable 'x'",
- *       ErrorCode.E001_UNDEFINED_VARIABLE,
- *       "Did you mean 'X'?"
- *   );
- *
+ * Diagnostic diag = new Diagnostic(
+ * sourceRange,
+ * DiagnosticSeverity.ERROR,
+ * "Undefined variable 'x'",
+ * ErrorCode.E001_UNDEFINED_VARIABLE,
+ * "Did you mean 'X'?"
+ * );
+ * <p>
  * TODO(Sedra): Add more error codes as semantic analysis features expand.
  * TODO(Sedra): Consider organizing codes by category (E0xx for undefined, E1xx for type, etc.).
  */
@@ -90,6 +90,30 @@ public enum ErrorCode {
      */
     E103_INCOMPATIBLE_TYPES("E103", "Incompatible types"),
 
+    /**
+     * E104: Cannot calling non-callable value.
+     * Severity: ERROR
+     * Example: "x = 10; x() -> 'int' object is not callable"
+     */
+    E104_NOT_CALLABLE("E104", "Not callable"),
+
+    /**
+     * E105: Invalid operation on list types.
+     * Severity: ERROR
+     * Example: "[1,2] + 3 -> Cannot add list and int"
+     */
+    E105_INVALID_LIST_OPERATION("E105", "Invalid list operation"),
+
+    /**
+     * E106: Invalid builtin function usage.
+     * Severity: ERROR
+     * Example: "len(100) -> object of type 'int' has no len()"
+     */
+    E106_INVALID_BUILTIN_USAGE("E106", "Invalid builtin usage"),
+
+
+    /**     * E107: Non-iterable type used in for loop.     * Severity: ERROR     * Example: "for x in 10: ... -> TypeError: 'int' object is not iterable"     */
+    E107_NOT_ITERABLE("E107", "Not iterable"),
 
     // === Scope Errors (E2xx) ===
 
@@ -182,10 +206,14 @@ public enum ErrorCode {
 
     // === Fields ===
 
-    /** Error code string (e.g., "E001", "W101"). */
+    /**
+     * Error code string (e.g., "E001", "W101").
+     */
     private final String code;
 
-    /** Short human-readable description. */
+    /**
+     * Short human-readable description.
+     */
     private final String description;
 
 
@@ -194,7 +222,7 @@ public enum ErrorCode {
     /**
      * Construct an ErrorCode.
      *
-     * @param code Error code string.
+     * @param code        Error code string.
      * @param description Short description.
      */
     ErrorCode(String code, String description) {
@@ -225,7 +253,7 @@ public enum ErrorCode {
 
     /**
      * Get the severity of this error code based on prefix.
-     *
+     * <p>
      * TODO(Sedra): Implement severity mapping for quick filtering.
      *
      * @return DiagnosticSeverity (ERROR if E, WARNING if W, etc.)

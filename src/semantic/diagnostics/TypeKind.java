@@ -4,22 +4,17 @@ import java.util.Optional;
 
 /**
  * Enumeration representing type kinds for semantic analysis.
- *
+ * <p>
  * TypeKind abstracts over concrete type representations (Python types, Jinja types, etc.)
  * and provides a unified type system for:
  * - Type checking and inference
  * - Type mismatch diagnostics
  * - Cross-context type resolution (Flask → Template)
- *
+ * <p>
  * Each TypeKind can optionally carry type parameters (for generic types like List[int], Dict[str, User]).
- *
- * Usage:
- *   TypeKind intType = TypeKind.INT;
- *   TypeKind listType = TypeKind.LIST; // non-parametric
- *   TypeKind listOfInt = TypeKind.parameterized(TypeKind.LIST, TypeKind.INT);
- *
- * TODO(Sedra): Implement parametric types fully (nested generics, union types, etc.).
- * TODO(Sedra): Add type compatibility and conversion checking.
+ * <p>
+ * NOTE: This enum currently represents *kinds* only (no parameters). Parametric types are
+ * planned in future; compatibility logic here is conservative and non-breaking.
  */
 public enum TypeKind {
 
@@ -55,25 +50,22 @@ public enum TypeKind {
 
     /**
      * LIST: List/array type (Python list, Jinja iterable).
-     * May be parameterized: LIST[INT], LIST[STR], etc.
+     * May be parameterized in a future implementation.
      */
     LIST("list"),
 
     /**
      * DICT: Dictionary/map type (Python dict, Jinja mapping).
-     * May be parameterized: DICT[STR, USER], etc.
      */
     DICT("dict"),
 
     /**
      * SET: Set type (Python set).
-     * May be parameterized: SET[INT], etc.
      */
     SET("set"),
 
     /**
      * TUPLE: Tuple type (Python tuple).
-     * May be parameterized: TUPLE[INT, STR], etc.
      */
     TUPLE("tuple"),
 
@@ -100,36 +92,30 @@ public enum TypeKind {
 
     /**
      * UNKNOWN: Type unknown or not yet inferred.
-     *
-     * Used when:
-     * - A symbol's type cannot be determined.
-     * - Type inference failed or was skipped.
-     * - A Flask variable's type is not declared.
-     *
-     * UNKNOWN is compatible with any type (for recovery in error cases),
-     * but diagnostics may be generated for clarity.
+     * <p>
+     * UNKNOWN is compatible with any type (for recovery in error cases).
      */
     UNKNOWN("unknown"),
 
     /**
      * ANY: Explicitly any/dynamic type (Python typing.Any, untyped variable).
-     *
-     * Different from UNKNOWN:
-     * - UNKNOWN: type not determined
-     * - ANY: explicitly allowed to be anything (no error on type mismatch)
+     * <p>
+     * ANY indicates explicit permissiveness (no error on type mismatch).
      */
     ANY("any"),
 
     /**
      * UNION: Union of multiple types (Python Union[T1, T2, ...]).
-     * May be parameterized: UNION[INT, STR], etc.
+     * <p>
+     * With current representation UNION is a marker; future representation should capture members.
      */
     UNION("union");
 
-
     // === Fields ===
 
-    /** Display name of the type. */
+    /**
+     * Display name of the type.
+     */
     private final String displayName;
 
 
@@ -150,7 +136,7 @@ public enum TypeKind {
     /**
      * Get the display name of this type.
      *
-     * @return Display name (e.g., "int", "List", "unknown").
+     * @return Display name (e.g., "int", "list", "unknown").
      */
     public String getDisplayName() {
         return displayName;
@@ -185,39 +171,53 @@ public enum TypeKind {
 
     /**
      * Check if this type is compatible with another type for assignment.
-     *
-     * Compatibility rules:
+     * <p>
+     * Compatibility rules (conservative and non-breaking):
      * - UNKNOWN and ANY are compatible with all types (recovery).
-     * - NONE is only compatible with NONE or ANY.
-     * - Exact match required for primitives (INT != FLOAT).
-     * - Container types checked by element type if parametrized.
-     *
-     * TODO(Sedra): Implement full type compatibility matrix with inheritance/subtypes.
+     * - UNION is treated permissively (compatible with its members — here, we assume permissive).
+     * - NONE is compatible with NONE and ANY (and permissive when paired with UNKNOWN).
+     * - Exact match required for primitives in general, with a small allowance between INT and FLOAT.
+     * - Container kinds (LIST, DICT, SET, TUPLE) are considered compatible with same container kind (non-parametric).
+     * <p>
+     * TODO: In future, extend TypeKind to hold parameters (type arguments) and implement deep compatibility.
      *
      * @param other Another TypeKind to check against.
      * @return true if this type is assignable to other.
      */
     public boolean isCompatibleWith(TypeKind other) {
-        // UNKNOWN and ANY are compatible with anything
+        if (other == null) return false;
+
+        // If either side is ANY or UNKNOWN, allow compatibility (recovery)
         if (this == UNKNOWN || this == ANY || other == UNKNOWN || other == ANY) {
             return true;
         }
 
-        // Same type is compatible
+        // If either is UNION, be permissive (detailed union-members handling requires richer representation)
+        if (this == UNION || other == UNION) {
+            return true;
+        }
+
+        // Exact match
         if (this == other) {
             return true;
         }
 
-        // INT and FLOAT may be compatible (with warning)
+        // Numeric compatibility: INT <-> FLOAT allowed (conservative)
         if ((this == INT && other == FLOAT) || (this == FLOAT && other == INT)) {
-            return true; // TODO(Sedra): Decide if this should be warning instead
+            return true;
         }
 
-        // NONE is only compatible with NONE/ANY
+        // NONE compatibility: allow NONE <-> NONE, and allow None with ANY/UNKNOWN handled earlier.
         if (this == NONE || other == NONE) {
-            return this == other || other == ANY;
+            return this == other || this == ANY || other == ANY || this == UNKNOWN || other == UNKNOWN;
         }
 
+        // Container kinds: consider same container kinds compatible (non-parametric)
+        if (this.isContainerType() && other.isContainerType()) {
+            return this == other;
+        }
+
+        // As a fallback, not compatible.
         return false;
     }
 

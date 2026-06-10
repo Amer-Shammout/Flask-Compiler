@@ -264,7 +264,7 @@ set_literal
     ;
 
 list_literal
-    : LBRACK expr COMMA expr (COMMA expr)* COMMA? RBRACK
+    : LBRACK (expr (COMMA expr)*)? COMMA? RBRACK
     ;
 
 number_literal

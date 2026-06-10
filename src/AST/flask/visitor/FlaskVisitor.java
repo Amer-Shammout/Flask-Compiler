@@ -567,26 +567,32 @@ public class FlaskVisitor extends FlaskParserBaseVisitor<ASTNode> {
         if (ctx == null) {
             return null;
         }
-
         Token start = ctx.getStart();
         Token stop = ctx.getStop() != null ? ctx.getStop() : start;
-
         int startColumn = start.getCharPositionInLine() + 1;
         SourcePosition startPosition = new SourcePosition(start.getLine(), startColumn);
-
         int endLine = stop.getLine();
         int endColumn = stop.getCharPositionInLine() + 1;
         String stopText = stop.getText();
         if (stopText != null && !stopText.isEmpty()) {
             int lastNewLine = Math.max(stopText.lastIndexOf('\n'), stopText.lastIndexOf('\r'));
             if (lastNewLine >= 0) {
-                endLine = stop.getLine();
-                endColumn = stopText.length() - lastNewLine;
+                int newLines = 0;
+                for (int i = 0; i < stopText.length(); i++) {
+                    if (stopText.charAt(i) == '\n') {
+                        newLines++;
+                    }
+                }
+                // prevent extra line count
+                if (stopText.endsWith("\n") || stopText.endsWith("\r")) {
+                    newLines--;
+                }
+                endLine = stop.getLine() + newLines;
+                endColumn = Math.max(1,stopText.length() - lastNewLine - 1); //stopText.length() - lastNewLine
             } else {
                 endColumn += stopText.length() - 1;
             }
         }
-
         return new SourceRange(startPosition, new SourcePosition(endLine, endColumn));
     }
 }

@@ -1,11 +1,6 @@
 package SymbolTable;
 
-import java.util.List;
-import java.util.Locale;
-import java.util.Optional;
-import java.util.Map;
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
+import java.util.*;
 
 
 /**
@@ -33,6 +28,11 @@ public abstract class AbstractSymbolTable implements ISymbolTable {
      * Return human readable name for this table (scope name).
      */
     public String getName() { return name; }
+
+    /**     * Get the child scopes of this table.     * @return unmodifiable list of child scopes     */
+    public List<ISymbolTable> getChildren() {
+        return Collections.unmodifiableList(children);
+    }
 
     protected String normalizeKey(String symbolName, boolean caseSensitive) {
         return caseSensitive ? symbolName : symbolName.toLowerCase(Locale.ROOT);

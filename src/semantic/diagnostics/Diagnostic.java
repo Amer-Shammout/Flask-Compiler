@@ -1,46 +1,49 @@
 package semantic.diagnostics;
 
 import AST.SourceRange;
+
 import java.util.Optional;
 
 /**
  * Represents a single diagnostic message (error, warning, info, or hint).
- *
+ * <p>
  * A Diagnostic captures:
  * - Location in source code (via SourceRange)
- * - Severity level (ERROR, WARNING, INFO, HINT)
+ * - Severity level (derived from ErrorCode)
  * - Human-readable message
- * - Error code (ErrorCode enum, not just string)
+ * - Error code (ErrorCode enum)
  * - Optional context hint or suggestion
  * - Optional type information for type errors
- *
+ * <p>
  * Diagnostics are immutable and designed to be collected and reported by DiagnosticCollector.
- *
- * Example:
- *   Diagnostic diag = new Diagnostic(
- *       sourceRange,
- *       ErrorCode.E001_UNDEFINED_VARIABLE,
- *       "Undefined variable 'x'",
- *       "Did you mean 'X' (defined on line 5)?"
- *   );
  */
 public class Diagnostic {
 
     // === Fields ===
 
-    /** Source location where the diagnostic occurred. */
+    /**
+     * Source location where the diagnostic occurred.
+     */
     private final SourceRange sourceRange;
 
-    /** Diagnostic error code (enum, not string). */
+    /**
+     * Diagnostic error code (enum).
+     */
     private final ErrorCode errorCode;
 
-    /** Human-readable diagnostic message. */
+    /**
+     * Human-readable diagnostic message.
+     */
     private final String message;
 
-    /** Optional context hint or suggestion for fixing the issue. */
+    /**
+     * Optional context hint or suggestion for fixing the issue.
+     */
     private final Optional<String> hint;
 
-    /** Optional type information (for type errors). */
+    /**
+     * Optional type information (for type errors).
+     */
     private final Optional<TypeKind> relatedType;
 
 
@@ -50,16 +53,15 @@ public class Diagnostic {
      * Construct a Diagnostic with all fields.
      *
      * @param sourceRange Location in source code.
-     * @param errorCode ErrorCode (enum).
-     * @param message Human-readable message.
-     * @param hint Optional hint or suggestion.
+     * @param errorCode   ErrorCode (enum).
+     * @param message     Human-readable message.
+     * @param hint        Optional hint or suggestion.
      * @param relatedType Optional type for type errors.
      */
-    public Diagnostic(SourceRange sourceRange, ErrorCode errorCode,
-                      String message, String hint, TypeKind relatedType) {
+    public Diagnostic(SourceRange sourceRange, ErrorCode errorCode, String message, String hint, TypeKind relatedType) {
         this.sourceRange = sourceRange;
         this.errorCode = errorCode;
-        this.message = message;
+        this.message = message != null ? message : "";
         this.hint = Optional.ofNullable(hint);
         this.relatedType = Optional.ofNullable(relatedType);
     }
@@ -68,8 +70,8 @@ public class Diagnostic {
      * Construct a Diagnostic with basic fields (no hint or type).
      *
      * @param sourceRange Location in source code.
-     * @param errorCode ErrorCode (enum).
-     * @param message Human-readable message.
+     * @param errorCode   ErrorCode (enum).
+     * @param message     Human-readable message.
      */
     public Diagnostic(SourceRange sourceRange, ErrorCode errorCode, String message) {
         this(sourceRange, errorCode, message, null, null);
@@ -79,9 +81,9 @@ public class Diagnostic {
      * Construct a Diagnostic with hint.
      *
      * @param sourceRange Location in source code.
-     * @param errorCode ErrorCode (enum).
-     * @param message Human-readable message.
-     * @param hint Optional hint or suggestion.
+     * @param errorCode   ErrorCode (enum).
+     * @param message     Human-readable message.
+     * @param hint        Optional hint or suggestion.
      */
     public Diagnostic(SourceRange sourceRange, ErrorCode errorCode, String message, String hint) {
         this(sourceRange, errorCode, message, hint, null);
@@ -148,12 +150,13 @@ public class Diagnostic {
 
     /**
      * Format diagnostic as: "[SEVERITY] [line:col] [CODE] message\n  Hint: hint (if available)"
-     *
+     * <p>
      * Example output:
-     *   [ERROR] [5:10] [E001] Undefined variable 'x'
-     *     Hint: Did you mean 'X' defined on line 3?
-     *
+     * [ERROR] [5:10] [E001] Undefined variable 'x'
+     * Hint: Did you mean 'X' defined on line 3?
+     * <p>
      * TODO(Sedra): Implement formatting logic with color codes (if needed for terminal output).
+     * Colored output is handled by ColoredLogger; this toString produces a deterministic plain-text representation.
      *
      * @return Formatted string representation.
      */
@@ -166,63 +169,62 @@ public class Diagnostic {
         sb.append("[").append(severity.name()).append("]");
 
         // Location (line:col)
-        if (sourceRange != null) {
-            sb.append(" [").append(sourceRange.getStart().getLine())
-              .append(":").append(sourceRange.getStart().getColumn()).append("]");
+        if (sourceRange != null && sourceRange.getStart() != null) {
+            sb.append(" [").append(sourceRange.getStart().getLine()).append(":").append(sourceRange.getStart().getColumn()).append("]");
+        } else {
+            sb.append(" [unknown]");
         }
 
         // Error code
-        sb.append(" ").append(errorCode.toString());
+        if (errorCode != null) {
+            sb.append(" [").append(errorCode.getCode()).append("]");
+        } else {
+            sb.append(" [UNKNOWN]");
+        }
 
         // Message
         sb.append(" ").append(message);
 
         // Related type (if present)
-        if (relatedType.isPresent()) {
-            sb.append(" (type: ").append(relatedType.get()).append(")");
-        }
+        relatedType.ifPresent(t -> sb.append(" (type: ").append(t.getDisplayName()).append(")"));
 
         // Hint
-        if (hint.isPresent()) {
-            sb.append("\n  Hint: ").append(hint.get());
-        }
+        hint.ifPresent(h -> sb.append("\n  Hint: ").append(h));
 
         return sb.toString();
     }
 
     /**
      * Compare two diagnostics by severity (ERROR > WARNING > INFO > HINT) and then by location.
-     *
+     * <p>
      * Ordering: ERROR > WARNING > INFO > HINT, then by line/column.
      *
      * @param other Another Diagnostic.
-     * @return Negative if this diagnostic is more severe, positive if less, 0 if equal severity.
+     * @return Negative if this diagnostic is more severe or earlier, positive if less, 0 if equal.
      */
     public int compareBySeverity(Diagnostic other) {
-        // Define severity ordering
-        int severityOrder = getSeverityOrder(this.getSeverity())
-                            - getSeverityOrder(other.getSeverity());
-        if (severityOrder != 0) {
-            return severityOrder;
+        if (other == null) return -1;
+        int myOrder = getSeverityOrder(this.getSeverity());
+        int otherOrder = getSeverityOrder(other.getSeverity());
+        if (myOrder != otherOrder) {
+            // higher numeric order => more severe, so return negative when this is more severe
+            return Integer.compare(otherOrder, myOrder);
         }
 
-        // If same severity, compare by location
-        if (sourceRange != null && other.sourceRange != null) {
-            int lineCompare = Integer.compare(
-                sourceRange.getStart().getLine(),
-                other.sourceRange.getStart().getLine()
-            );
-            if (lineCompare != 0) {
-                return lineCompare;
-            }
+        if (this.sourceRange != null && other.sourceRange != null && this.sourceRange.getStart() != null && other.sourceRange.getStart() != null) {
+            int lineCompare = Integer.compare(this.sourceRange.getStart().getLine(), other.sourceRange.getStart().getLine());
+            if (lineCompare != 0) return lineCompare;
 
-            return Integer.compare(
-                sourceRange.getStart().getColumn(),
-                other.sourceRange.getStart().getColumn()
-            );
+            int colCompare = Integer.compare(this.sourceRange.getStart().getColumn(), other.sourceRange.getStart().getColumn());
+            return colCompare;
         }
 
-        return 0;
+        // Fallback to comparing codes/messages
+        String myCode = this.errorCode != null ? this.errorCode.getCode() : "";
+        String otherCode = other.errorCode != null ? other.errorCode.getCode() : "";
+        int codeCmp = myCode.compareTo(otherCode);
+        if (codeCmp != 0) return codeCmp;
+        return this.message.compareTo(other.message);
     }
 
     /**

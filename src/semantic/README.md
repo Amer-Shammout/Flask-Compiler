@@ -27,6 +27,10 @@ src/semantic/
 ├── bridge/
 │   ├── TemplateContext.java
 │   └── TemplateContextBridge.java
+    └── RenderTempalteCall.java
+    └── FlaskContextExtractor.java
+    └── CrossContextResolutionIndex.java
+    └── TemplateContextBridge.java
 ├── diagnostics/
 │   ├── DiagnosticSeverity.java
 │   ├── ErrorCode.java
