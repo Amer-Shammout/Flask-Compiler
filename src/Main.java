@@ -236,7 +236,7 @@ public class Main {
         System.out.println("─".repeat(70));
 
         DiagnosticCollector flaskDiagnostics = new DiagnosticCollector();
-        SemanticAnalysisPipeline flaskPipeline = new SemanticAnalysisPipeline(repository, flaskDiagnostics);
+        SemanticAnalysisPipeline flaskPipeline = new SemanticAnalysisPipeline(repository, flaskDiagnostics, flaskBuilder);
         flaskPipeline.analyzeFlaskOnly(flaskProgram);
 
         System.out.println("✓ Flask semantic analysis complete - types now in Symbol Table\n");
@@ -388,7 +388,7 @@ public class Main {
         System.out.println("─".repeat(70));
 
         DiagnosticCollector globalFlaskDiagnostics = new DiagnosticCollector();
-        SemanticAnalysisPipeline flaskPipeline = new SemanticAnalysisPipeline(repository, globalFlaskDiagnostics);
+        SemanticAnalysisPipeline flaskPipeline = new SemanticAnalysisPipeline(repository, globalFlaskDiagnostics, flaskBuilder);
         flaskPipeline.analyzeFlaskOnly(flaskProgram);
 
         System.out.println("✓ Flask type inference complete - Symbol Table ready for templates\n");

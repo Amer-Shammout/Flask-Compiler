@@ -55,20 +55,22 @@ def product_details():
     pid = request.args.get("id")
     if not pid:
         return "Missing product id"
-    index = int(pid) - 1
-    if index < 0 or index >= len(products):
-        return "Invalid Product"
-    p = products[index]
-    product = Product(
-        p[0],
-        p[1],
-        p[2],
-        p[3]
-    )
-    return render_template(
-        "product_details.html",
-        product=product
-    )
+    pid = int(pid)
+    for p in products:
+        if p[0] == pid:
+            product = Product(
+                p[0],
+                p[1],
+                p[2],
+                p[3]
+            )
+
+            return render_template(
+                "product_details.html",
+                product=product
+            )
+
+    return "Invalid Product"
 
 
 # -----------------------
@@ -84,24 +86,44 @@ def add_product():
 # -----------------------
 @app.route("/products/create", methods=["GET", "POST"])
 def create_product():
-    if request.method == "POST":
-        new_id = len(products) + 1
-        name = request.form.get("name")
-        price = request.form.get("price")
-        price = float(price)
-        new_product = [
+    max_id = 0
+    for p in products:
+        if p[0] > max_id:
+            max_id = p[0]
+    new_id = max_id + 1
+    name = request.form.get("name")
+    price = float(request.form.get("price"))
+    products.append(
+        [
             new_id,
             name,
             price,
             True
         ]
-        products.append(new_product)
-        return redirect(url_for("list_products"))
-    return render_template("add_product.html")
+    )
+    return redirect(
+        url_for("list_products")
+    )
+
+
+# -----------------------
+# Delete Product
+# -----------------------
+@app.route("/products/delete")
+def delete_product():
+    pid = request.args.get("id")
+    if not pid:
+        return "Missing product id"
+    pid = int(pid)
+    for p in products:
+        if p[0] == pid:
+            products.remove(p)
+            break
+    return redirect(url_for("list_products"))
 
 
 # -----------------------
 # Run
 # -----------------------
-if __name__ == "__main__":
+if __name__ == "main":
     app.run(port=5001, debug=True)
