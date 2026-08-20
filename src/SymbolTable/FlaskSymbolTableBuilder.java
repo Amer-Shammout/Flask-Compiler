@@ -29,6 +29,7 @@ import AST.flask.stmt.ForStmt;
 import AST.flask.stmt.FromImportStmt;
 import AST.flask.stmt.FunctionDefStmt;
 import AST.flask.stmt.IfStmt;
+import AST.flask.stmt.ImportStmt;
 import AST.flask.stmt.ReturnStmt;
 import AST.flask.stmt.Statement;
 import AST.flask.stmt.WhileStmt;
@@ -130,6 +131,15 @@ public class FlaskSymbolTableBuilder extends SymbolTableBuilder {
             case FromImportStmt importStmt -> {
                 for (String importedName : importStmt.getNames()) {
                     recordDefinition(importedName, null, activeTable, SymbolKind.IMPORT);
+                }
+            }
+            case ImportStmt importStmt -> {
+                // Python binds only the top-level package for dotted imports,
+                // e.g. `import os.path` makes `os` (not `os.path`) available in scope.
+                for (String moduleName : importStmt.getModules()) {
+                    int dot = moduleName.indexOf('.');
+                    String boundName = dot >= 0 ? moduleName.substring(0, dot) : moduleName;
+                    recordDefinition(boundName, null, activeTable, SymbolKind.IMPORT);
                 }
             }
             case IfStmt ifStmt -> {

@@ -3,22 +3,15 @@
 <html>
 <head>
     <title>Product Details</title>
-
-    <style>
-        body {
-            font-family: Arial;
-            margin: 20px;
-        }
-
-        .card {
-            border: 1px solid #cccccc;
-            padding: 20px;
-            width: 400px;
-        }
-    </style>
+    <link rel="stylesheet" href="/style.css">
 </head>
 
 <body>
+
+<nav class="nav">
+    <a class="btn" href="/products">Products</a>
+    <a class="btn" href="/products/add">Add Product</a>
+</nav>
 
 <h1>Product Details</h1>
 
@@ -41,18 +34,18 @@
 
     <p>
         {% if product.in_stock %}
-        Available
+        <span class="status-in">Available</span>
         {% else %}
-        Not Available
+        <span class="status-out">Not Available</span>
         {% endif %}
     </p>
 
 </div>
 
 <p>
-    <a href="/products">
-        Back To Products
-    </a>
+    <a class="btn" href="/products">Back To Products</a>
+    <a class="btn" href="/products/edit?id={{ product.id }}">Edit Product</a>
+    <a class="btn btn-danger" href="/products/delete?id={{ product.id }}">Delete Product</a>
 </p>
 
 </body>

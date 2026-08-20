@@ -44,5 +44,10 @@ src/antlr/gen/
 *.jar
 *.log
 
+# Translator generation output
+output/
+compiler_output/
+
 # Keep grammar files only
 !src/antlr/*.g4
+!lib/*.jar

@@ -726,7 +726,8 @@ public class TemplateVisitor extends TemplateParserBaseVisitor<ASTNode> {
     @Override
     public ASTNode visitJinjaInclude(TemplateParser.JinjaIncludeContext ctx) {
 
-        String templateName = ctx.JINJA_STMT_STRING().getText();
+        String raw = ctx.JINJA_STMT_STRING().getText();
+        String templateName = raw.substring(1, raw.length() - 1);
         return new JinjaIncludeStmt(templateName, range(ctx));
     }
 

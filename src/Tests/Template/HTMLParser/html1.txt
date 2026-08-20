@@ -1,2 +1,0 @@
-<img src="image.png" alt='An image' />
-<a href="https://example.com" target="_blank">Click here</a>

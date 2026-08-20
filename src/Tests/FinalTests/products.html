@@ -3,42 +3,17 @@
 <html>
 <head>
     <title>Products</title>
-
-    <style>
-        body {
-            font-family: Arial;
-            margin: 20px;
-        }
-
-        table {
-            width: 100%;
-            border: 1px solid #cccccc;
-        }
-
-        th {
-            background: #eeeeee;
-            padding: 10px;
-        }
-
-        td {
-            padding: 10px;
-        }
-
-        .btn {
-            padding: 8px;
-            border: 1px solid #333333;
-            text-decoration: none;
-        }
-    </style>
+    <link rel="stylesheet" href="/style.css">
 </head>
 
 <body>
 
-<h1>Products</h1>
-
-<p>
+<nav class="nav">
+    <a class="btn" href="/products">Products</a>
     <a class="btn" href="/products/add">Add Product</a>
-</p>
+</nav>
+
+<h1>Products</h1>
 
 <table>
 
@@ -62,15 +37,15 @@
 
         <td>
             {% if product.in_stock %}
-            In Stock
+            <span class="status-in">In Stock</span>
             {% else %}
-            Out Of Stock
+            <span class="status-out">Out Of Stock</span>
             {% endif %}
         </td>
 
         <td>
-            <a href="/products/details?id={{ product.id }}"> View </a>
-            <a href="/products/delete?id={{ product.id }}"> Delete </a>
+            <a class="btn" href="/products/details?id={{ product.id }}">View</a>
+            <a class="btn btn-danger" href="/products/delete?id={{ product.id }}">Delete</a>
         </td>
 
     </tr>

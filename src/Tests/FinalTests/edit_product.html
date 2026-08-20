@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+
+<html>
+<head>
+    <title>Edit Product</title>
+    <link rel="stylesheet" href="/style.css">
+</head>
+
+<body>
+
+<nav class="nav">
+    <a class="btn" href="/products">Products</a>
+    <a class="btn" href="/products/add">Add Product</a>
+</nav>
+
+<h1>Edit Product</h1>
+
+<form method="POST" action="/products/update">
+
+    <input type="hidden" name="id" value="{{ product.id }}">
+
+    <label>Name</label>
+    <input type="text" name="name" value="{{ product.name }}">
+
+    <label>Price</label>
+    <input type="text" name="price" value="{{ product.price }}">
+
+    <label>
+        {% if product.in_stock %}
+        <input type="checkbox" name="in_stock" checked="checked">
+        {% else %}
+        <input type="checkbox" name="in_stock">
+        {% endif %}
+        In Stock
+    </label>
+
+    <button type="submit">
+        Save Changes
+    </button>
+
+</form>
+
+<p>
+    <a class="btn" href="/products/details?id={{ product.id }}">Cancel</a>
+</p>
+
+</body>
+</html>

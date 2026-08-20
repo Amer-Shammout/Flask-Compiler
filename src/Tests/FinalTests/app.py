@@ -1,6 +1,8 @@
-from flask import Flask, render_template, request, redirect, url_for
+from flask import Flask, render_template, request, redirect, url_for, send_from_directory
+import os
 
-app = Flask(__name__)
+# Templates live next to this file (FinalTests/*.html)
+app = Flask(__name__, template_folder=".")
 
 
 class Product:
@@ -16,6 +18,14 @@ products = [
     [1, "Laptop", 1200.0, True],
     [2, "Headphones", 250.0, False]
 ]
+
+
+# -----------------------
+# Static CSS (same folder as app.py)
+# -----------------------
+@app.route("/style.css")
+def stylesheet():
+    return send_from_directory(os.path.dirname(os.path.abspath(__file__)), "style.css")
 
 
 # -----------------------

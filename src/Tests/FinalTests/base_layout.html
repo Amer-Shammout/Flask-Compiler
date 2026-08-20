@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+
+<html>
+<head>
+    <title>{% block title %}Untitled{% endblock %}</title>
+    <link rel="stylesheet" href="/style.css">
+</head>
+
+<body>
+
+<nav class="nav">
+    <a class="btn" href="/products">Products</a>
+    <a class="btn" href="/products/add">Add Product</a>
+</nav>
+
+<main>
+    {% block content %}
+    <p>Default content — no block override was provided.</p>
+    {% endblock %}
+</main>
+
+</body>
+</html>

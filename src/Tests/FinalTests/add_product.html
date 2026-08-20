@@ -3,46 +3,24 @@
 <html>
 <head>
     <title>Add Product</title>
-
-    <style>
-        body {
-            font-family: Arial;
-            margin: 20px;
-        }
-
-        form {
-            width: 400px;
-        }
-
-        label {
-            display: block;
-            margin-top: 10px;
-        }
-
-        input {
-            width: 100%;
-            padding: 8px;
-        }
-
-        button {
-            margin-top: 15px;
-            padding: 10px;
-        }
-    </style>
+    <link rel="stylesheet" href="/style.css">
 </head>
 
 <body>
+
+<nav class="nav">
+    <a class="btn" href="/products">Products</a>
+    <a class="btn" href="/products/add">Add Product</a>
+</nav>
 
 <h1>Add Product</h1>
 
 <form method="POST" action="/products/create">
 
     <label>Name</label>
-
     <input type="text" name="name">
 
     <label>Price</label>
-
     <input type="text" name="price">
 
     <button type="submit">
@@ -52,9 +30,7 @@
 </form>
 
 <p>
-    <a href="/products">
-        Back To Products
-    </a>
+    <a class="btn" href="/products">Back To Products</a>
 </p>
 
 </body>
