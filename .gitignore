@@ -51,3 +51,7 @@ compiler_output/
 # Keep grammar files only
 !src/antlr/*.g4
 !lib/*.jar
+
+# Python bytecode
+__pycache__/
+*.pyc

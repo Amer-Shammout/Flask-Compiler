@@ -26,12 +26,20 @@ public final class GenerationSmokeTest {
         requireFile(compilerOutput.resolve("ast_jinja.json"));
         requireFile(compilerOutput.resolve("semantic_report.txt"));
         requireFile(compilerOutput.resolve("generation_log.txt"));
-        requireFile(output.resolve("style.css"));
         requireFile(output.resolve("products.html"));
 
         String productsHtml = Files.readString(output.resolve("products.html"));
-        if (!productsHtml.contains("href=\"style.css\"") || !productsHtml.contains("nav")) {
-            throw new AssertionError("products.html missing relative stylesheet/nav");
+        if (!productsHtml.contains("nav")) {
+            throw new AssertionError("products.html missing nav");
+        }
+        if (!productsHtml.contains("<style>")) {
+            throw new AssertionError("products.html missing compiled <style> block");
+        }
+        if (!productsHtml.contains(".nav a {")) {
+            throw new AssertionError("products.html: descendant selector lost in compiled CSS");
+        }
+        if (productsHtml.contains("rel=\"stylesheet\"")) {
+            throw new AssertionError("products.html still references an external stylesheet");
         }
 
         String astPython = Files.readString(compilerOutput.resolve("ast_python.json"));

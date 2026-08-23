@@ -112,7 +112,7 @@ public final class GenerationServer {
                 case "/products/delete" -> handleDelete(exchange);
                 case "/products/edit" -> serveEditForm(exchange);
                 case "/products/update" -> handleUpdate(exchange);
-                case "/style.css" -> serveStaticFile(exchange, templateDirectory.resolve("style.css"), "text/css");
+                // No /style.css route: the compiled <style> block ships inside each page.
                 case "/script.js" -> serveStaticFile(exchange, templateDirectory.resolve("script.js"), "application/javascript");
                 default -> respond(exchange, 404, "text/plain", "Not Found: " + path);
             }

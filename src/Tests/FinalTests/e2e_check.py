@@ -34,9 +34,10 @@ def main() -> None:
 
     print("=== End-to-end Flask screen checks ===\n")
 
-    # CSS
-    r = client.get("/style.css")
-    check("GET /style.css", r.status_code == 200 and b"font-family" in r.data, f"status={r.status_code}")
+    # CSS is compiled into each page as an inline <style> block
+    r = client.get("/products")
+    check("products page carries a <style> block", b"<style>" in r.data)
+    check("style block survived compilation", b"font-family" in r.data)
 
     # Home redirect → products
     r = client.get("/", follow_redirects=True)
@@ -49,7 +50,7 @@ def main() -> None:
     check("GET /products has Add link", b"/products/add" in r.data)
     check("GET /products has View link", b"/products/details?id=1" in r.data)
     check("GET /products has Delete link", b"/products/delete?id=" in r.data)
-    check("GET /products links stylesheet", b"/style.css" in r.data)
+    check("GET /products has no external stylesheet", b'rel="stylesheet"' not in r.data)
 
     # Details
     r = client.get("/products/details?id=1")

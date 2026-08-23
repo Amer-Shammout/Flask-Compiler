@@ -365,21 +365,29 @@ public final class TemplateRenderer {
         if (value == null) {
             return;
         }
-        boolean first = true;
-        for (CssValuePart part : value.getParts()) {
-            if (!first) {
-                out.append(" ");
+        boolean firstGroup = true;
+        for (List<CssValuePart> group : value.getGroups()) {
+            if (!firstGroup) {
+                out.append(", ");
             }
-            first = false;
-            if (part instanceof CssPrimitiveValue prim) {
-                out.append(prim.getText());
-            } else if (part instanceof CssFunctionCall call) {
-                out.append(call.getName()).append("(");
-                renderCssValue(call.getArgs());
-                out.append(")");
-            } else if (part instanceof CssJinjaExpressionValue jinja) {
-                RuntimeValue v = JinjaExpressionEvaluator.evaluate(jinja.getExpr(), context);
-                out.append(v.toString());
+            firstGroup = false;
+
+            boolean first = true;
+            for (CssValuePart part : group) {
+                if (!first) {
+                    out.append(" ");
+                }
+                first = false;
+                if (part instanceof CssPrimitiveValue prim) {
+                    out.append(prim.getText());
+                } else if (part instanceof CssFunctionCall call) {
+                    out.append(call.getName()).append("(");
+                    renderCssValue(call.getArgs());
+                    out.append(")");
+                } else if (part instanceof CssJinjaExpressionValue jinja) {
+                    RuntimeValue v = JinjaExpressionEvaluator.evaluate(jinja.getExpr(), context);
+                    out.append(v.toString());
+                }
             }
         }
     }

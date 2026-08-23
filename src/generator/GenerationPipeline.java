@@ -83,10 +83,8 @@ public final class GenerationPipeline {
         if (Files.isRegularFile(flaskSource)) {
             writer.copySupportFile(flaskSource);
         }
-        Path styleCss = templateDirectory.resolve("style.css");
-        if (Files.isRegularFile(styleCss)) {
-            writer.copySupportFile(styleCss);
-        }
+        // No stylesheet is copied: styling comes from the <style> block the templates
+        // include, so it is compiled and emitted inline into every generated page.
         Path scriptJs = templateDirectory.resolve("script.js");
         if (Files.isRegularFile(scriptJs)) {
             writer.copySupportFile(scriptJs);
@@ -115,9 +113,9 @@ public final class GenerationPipeline {
         ASTNode templateAst = parseTemplateHeadless(source);
         templateAsts.put(templateFileName, templateAst);
 
+        // The CSS is compiled into an inline <style> block, so the generated files are
+        // self-contained and need no path rewriting to open straight from disk.
         String html = new TemplateRenderer(context, templateDirectory).render(templateAst);
-        // Generated files in output/ are opened as local files → use relative CSS path
-        html = html.replace("href=\"/style.css\"", "href=\"style.css\"");
         Path out = writer.writeHtml(templateFileName, html);
         writer.log("Context keys for " + templateFileName + ": " + context.keys());
         generated.put(templateFileName, out);

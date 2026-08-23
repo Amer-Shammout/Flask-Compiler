@@ -14,6 +14,7 @@ import org.antlr.v4.runtime.ParserRuleContext;
 import org.antlr.v4.runtime.Token;
 import org.antlr.v4.runtime.tree.ParseTree;
 import org.antlr.v4.runtime.tree.TerminalNode;
+import org.antlr.v4.runtime.misc.Interval;
 import AST.SourcePosition;
 import AST.SourceRange;
 
@@ -232,7 +233,10 @@ public class TemplateVisitor extends TemplateParserBaseVisitor<ASTNode> {
 
         SourceRange ctxRange = range(ctx);
 
-        String selectorText = ctx.getText();
+        // ctx.getText() concatenates tokens with no separators, which destroys the
+        // descendant combinator (".nav a" becomes ".nava"). Read the original slice
+        // of input instead so selector whitespace survives.
+        String selectorText = originalText(ctx);
 
         List<JinjaExpr> jinjaExpressions = new ArrayList<>();
 
@@ -261,10 +265,15 @@ public class TemplateVisitor extends TemplateParserBaseVisitor<ASTNode> {
     @Override
     public ASTNode visitCssValue(TemplateParser.CssValueContext ctx) {
 
-        List<CssValuePart> parts = new ArrayList<>();
+        // css_value : css_space_value (CSS_COMMA_IN_BLOCK css_space_value)* ;
+        // Each css_space_value is one comma-separated group. Keep the groups apart so
+        // the comma survives: flattening turns "Arial, sans-serif" into the invalid
+        // "Arial sans-serif", which browsers drop.
+        List<List<CssValuePart>> groups = new ArrayList<>();
 
-        // css_value : css_space_value+ ;
         for (TemplateParser.Css_space_valueContext sv : ctx.css_space_value()) {
+
+            List<CssValuePart> group = new ArrayList<>();
 
             // css_space_value : css_value_part+ ;
             for (ParseTree child : sv.children) {
@@ -272,16 +281,18 @@ public class TemplateVisitor extends TemplateParserBaseVisitor<ASTNode> {
 
                 if (n instanceof CssValuePart p) {
                     // normal CSS token (ident, number, function, etc.)
-                    parts.add(p);
+                    group.add(p);
                 }
                 else if (n instanceof JinjaExpr expr) {
                     // {{ ... }} inside a value
-                    parts.add(new CssJinjaExpressionValue(expr, range(child)));
+                    group.add(new CssJinjaExpressionValue(expr, range(child)));
                 }
             }
+
+            groups.add(group);
         }
 
-        return new CssValue(parts, range(ctx));
+        return new CssValue(groups, range(ctx));
         }
 
 
@@ -774,6 +785,22 @@ public class TemplateVisitor extends TemplateParserBaseVisitor<ASTNode> {
             return new SourceRange(p1, p2);
         }
         return null;
+    }
+
+    /**
+     * Return the exact source text a rule matched, whitespace included.
+     * {@code ctx.getText()} joins token texts and drops everything the lexer skipped,
+     * which matters wherever spacing is significant (CSS descendant combinators).
+     */
+    private String originalText(ParserRuleContext ctx) {
+        if (ctx == null) return "";
+        Token s = ctx.getStart();
+        Token e = ctx.getStop();
+        if (s == null || e == null || s.getInputStream() == null) {
+            return ctx.getText();
+        }
+        return s.getInputStream()
+                .getText(Interval.of(s.getStartIndex(), e.getStopIndex()));
     }
 
     private SourceRange range(ParserRuleContext ctx) {
