@@ -54,8 +54,35 @@ public class TemplateVisitor extends TemplateParserBaseVisitor<ASTNode> {
 
     @Override
     public ASTNode visitTextNode(TemplateParser.TextNodeContext ctx) {
-        String raw = ctx.HTML_TEXT().getText();
-        return new HtmlText(raw, range(ctx));
+        // The HTML_TEXT lexer rule calls setText(trim()), which deletes the whitespace
+        // separating text from an adjacent {{ ... }}: "ID:\n  {{ id }}" would render as
+        // "ID:1" instead of "ID: 1". The token still points at the original input, so
+        // read the untrimmed slice back and collapse it the way HTML does - runs of
+        // whitespace become a single space, but a space is never deleted outright.
+        Token symbol = ctx.HTML_TEXT().getSymbol();
+        String raw = originalTokenText(symbol, ctx.HTML_TEXT().getText());
+        return new HtmlText(collapseWhitespace(raw), range(ctx));
+    }
+
+    /** Original input slice a token matched, before any setText() the lexer applied. */
+    private String originalTokenText(Token token, String fallback) {
+        if (token == null || token.getInputStream() == null) {
+            return fallback;
+        }
+        int start = token.getStartIndex();
+        int stop = token.getStopIndex();
+        if (start < 0 || stop < start) {
+            return fallback;
+        }
+        return token.getInputStream().getText(Interval.of(start, stop));
+    }
+
+    /** Collapse every run of whitespace to a single space, preserving edges. */
+    private static String collapseWhitespace(String text) {
+        if (text == null || text.isEmpty()) {
+            return text;
+        }
+        return text.replaceAll("[ \\t\\r\\n]+", " ");
     }
 
     /* =====================================================
