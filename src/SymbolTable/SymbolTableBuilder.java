@@ -42,18 +42,4 @@ public abstract class SymbolTableBuilder {
      */
     public abstract void visit(ASTNode node);
 
-    /**
-     * Helper: register a variable symbol in the given table.
-     * @param table target symbol table
-     * @param name variable name
-     */
-    public abstract void registerVariable(ISymbolTable table, String name);
-
-    /**
-     * Helper: register a function or template symbol.
-     * @param table target symbol table
-     * @param name symbol name
-     */
-    public abstract void registerCallable(ISymbolTable table, String name);
-
 }
