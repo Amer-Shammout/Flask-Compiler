@@ -323,10 +323,6 @@ public class UndefinedNameChecker {
                     exists = true;
             }
 
-            // زايدة مالها داعي و معالجة بال NameResolver.resolve
-            // Builtins last
-            // if (!exists && PythonBuiltins.lookup(fname).isPresent()) exists = true;
-
             if (!exists) {
                 SourceRange range = call.getSourceRange();
                 String hint = "Ensure the function is defined or properly imported before calling.";

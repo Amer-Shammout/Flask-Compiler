@@ -2,43 +2,16 @@ package SymbolTable;
 
 import AST.ASTNode;
 import AST.Program;
-import AST.SourceRange;
-import AST.flask.expr.Argument;
-import AST.flask.expr.AttributeExpr;
-import AST.flask.expr.BinaryExpr;
-import AST.flask.expr.CallExpr;
-import AST.flask.expr.CompareExpr;
-import AST.flask.expr.Expression;
-import AST.flask.expr.IdentifierExpr;
-import AST.flask.expr.IndexExpr;
-import AST.flask.expr.KeywordArgument;
-import AST.flask.expr.LambdaExpr;
-import AST.flask.expr.NotExpr;
-import AST.flask.expr.PositionalArgument;
-import AST.flask.expr.UnaryExpr;
+import AST.flask.expr.*;
 import AST.flask.literal.ListLiteralExpr;
 import AST.flask.literal.LiteralExpr;
 import AST.flask.literal.SetLiteralExpr;
-import AST.flask.stmt.AssignmentChainStmt;
-import AST.flask.stmt.AssignmentStmt;
-import AST.flask.stmt.ClassDefStmt;
-import AST.flask.stmt.DecoratedStmt;
-import AST.flask.stmt.DelStmt;
-import AST.flask.stmt.ExpressionStmt;
-import AST.flask.stmt.ForStmt;
-import AST.flask.stmt.FromImportStmt;
-import AST.flask.stmt.FunctionDefStmt;
-import AST.flask.stmt.IfStmt;
-import AST.flask.stmt.ImportStmt;
-import AST.flask.stmt.ReturnStmt;
-import AST.flask.stmt.Statement;
-import AST.flask.stmt.WhileStmt;
+import AST.flask.stmt.*;
 import AST.flask.suite.BlockSuite;
 import AST.flask.suite.InlineSuite;
 import AST.flask.suite.Suite;
 import semantic.diagnostics.ResolutionStatus;
 
-import java.util.List;
 import java.util.Optional;
 
 /**
@@ -51,7 +24,9 @@ import java.util.Optional;
 public class FlaskSymbolTableBuilder extends SymbolTableBuilder {
 
     private final FlaskReferenceIndex referenceIndex = new FlaskReferenceIndex();
-  /** Indexes the next child scope to enter during pass 2 (matches pass-1 enterScope order). */
+    /**
+     * Indexes the next child scope to enter during pass 2 (matches pass-1 enterScope order).
+     */
     private int siblingScopeIndex = 0;
 
     public FlaskSymbolTableBuilder(SymbolTableRepository repository) {
@@ -227,7 +202,8 @@ public class FlaskSymbolTableBuilder extends SymbolTableBuilder {
                 NameResolver.scopeName(table),
                 status,
                 symbol,
-                NameResolver.scopeName(table)
+                NameResolver.scopeName(table),
+                table
         ));
     }
 
@@ -338,7 +314,9 @@ public class FlaskSymbolTableBuilder extends SymbolTableBuilder {
         return null;
     }
 
-  /** Re-enters the next child scope created during pass 1 at this level. */
+    /**
+     * Re-enters the next child scope created during pass 1 at this level.
+     */
     private ISymbolTable enterSiblingScope() {
         if (!(activeTable instanceof AbstractSymbolTable parent)) {
             return activeTable;
@@ -432,7 +410,8 @@ public class FlaskSymbolTableBuilder extends SymbolTableBuilder {
                 NameResolver.scopeName(activeTable),
                 status,
                 binding.map(ScopeBinding::getSymbol).orElse(null),
-                binding.map(b -> NameResolver.scopeName(b.getDefiningScope())).orElse(null)
+                binding.map(b -> NameResolver.scopeName(b.getDefiningScope())).orElse(null),
+                activeTable
         ));
     }
 

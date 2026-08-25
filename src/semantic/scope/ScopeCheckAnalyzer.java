@@ -11,9 +11,11 @@ import java.util.*;
 /**
  * Analyzer for E202 (Use Before Definition) and E203 (Out Of Scope) errors.
  * <p>
- * This analyzer works with the already-built Flask reference index and symbol table
+ * This analyzer works with the already-built Flask reference index and symbol
+ * table
  * to detect:
- * - E202: Variable used before definition in the same scope (or satisfied by ancestor)
+ * - E202: Variable used before definition in the same scope (or satisfied by
+ * ancestor)
  * - E203: Variable referenced outside its valid scope
  * <p>
  * IMPORTANT: This analyzer queries the existing FlaskReferenceIndex built by
@@ -25,14 +27,16 @@ public class ScopeCheckAnalyzer {
     private final DiagnosticCollector diagnostics;
     private final FlaskSymbolTableBuilder builder;
 
-    public ScopeCheckAnalyzer(SymbolTableRepository repository, DiagnosticCollector diagnostics, FlaskSymbolTableBuilder builder) {
+    public ScopeCheckAnalyzer(SymbolTableRepository repository, DiagnosticCollector diagnostics,
+                              FlaskSymbolTableBuilder builder) {
         this.repository = repository;
         this.diagnostics = diagnostics;
         this.builder = builder;
     }
 
     /**
-     * Perform scope analysis: detect E202 (use before definition) and E203 (out of scope).
+     * Perform scope analysis: detect E202 (use before definition) and E203 (out of
+     * scope).
      */
     public void analyze() {
         if (builder == null || repository == null) {
@@ -56,13 +60,22 @@ public class ScopeCheckAnalyzer {
      * <p>
      * Behaviour:
      * - Consider only the same use-scope and its ancestor chain.
-     * - When multiple scopes share the same name (e.g. many "for" scopes), examine all
-     * candidate scopes and their ancestor chains; if any ancestor provides a definition
+     * - When multiple scopes share the same name (e.g. many "for" scopes), examine
+     * all
+     * candidate scopes and their ancestor chains; if any ancestor provides a
+     * definition
      * that occurs before the reference, do NOT emit E202.
      * - Do NOT perform a global "anywhere" fallback (that caused false negatives).
      */
     private void checkUseBeforeDefinition(FlaskReferenceIndex index) {
-        // Group by (scope name, symbol name) -> list of sites in that scope
+        /*
+         * Group by (scope name, symbol name) -> list of sites in that scope
+         * scopedSites = {
+         * "flask-global": {
+         * "x": [site1(DEF), site2(REF), site3(DEF)]
+         * }
+         * }
+         */
         Map<String, Map<String, List<SymbolReference>>> scopedSites = new HashMap<>();
 
         for (SymbolReference ref : index.getAllSites()) {
@@ -74,7 +87,8 @@ public class ScopeCheckAnalyzer {
                     .add(ref);
         }
 
-        // Acquire flask root to allow ancestor lookups (define outside if to avoid pattern-scope problems)
+        // Acquire flask root to allow ancestor lookups (define outside if to avoid
+        // pattern-scope problems)
         ISymbolTable flaskGlobal = repository.getFlaskGlobal();
         FlaskSymbolTable flaskRoot = null;
         if (flaskGlobal instanceof FlaskSymbolTable) {
@@ -111,14 +125,10 @@ public class ScopeCheckAnalyzer {
                                 boolean skipE202 = false;
 
                                 if (flaskRoot != null) {
-                                    // There may be multiple candidate scopes with identical name (e.g. multiple "for").
-                                    // Try all candidates and their ancestor chains: if any candidate's ancestor
-                                    // chain supplies a definition that occurs before the reference, skip E202.
-                                    List<ISymbolTable> candidates = findAllScopesByName(flaskRoot, ref.getUseScopeName());
-                                    for (ISymbolTable candidateScope : candidates) {
-                                        if (hasAncestorDefinitionBefore(index, candidateScope, symbolName, ref)) {
+                                    Optional<ISymbolTable> useScopeOpt = ref.getUseScope();
+                                    if (useScopeOpt.isPresent()) {
+                                        if (hasAncestorDefinitionBefore(index, useScopeOpt.get(), symbolName, ref)) {
                                             skipE202 = true;
-                                            break;
                                         }
                                     }
                                 }
@@ -135,20 +145,25 @@ public class ScopeCheckAnalyzer {
     }
 
     /**
-     * Check if any ancestor (parent, parent's parent, ...) of useScope contains a DEFINITION
+     * Check if any ancestor (parent, parent's parent, ...) of useScope contains a
+     * DEFINITION
      * for 'name' that occurs before the given reference location.
      * <p>
-     * This function inspects the recorded definitions in the reference index and matches
+     * This function inspects the recorded definitions in the reference index and
+     * matches
      * definitions by scope name to ancestors of the provided useScope.
      */
-    private boolean hasAncestorDefinitionBefore(FlaskReferenceIndex index, ISymbolTable useScope, String name, SymbolReference reference) {
+    private boolean hasAncestorDefinitionBefore(FlaskReferenceIndex index, ISymbolTable useScope, String name,
+                                                SymbolReference reference) {
         ISymbolTable cur = NameResolver.parentOf(useScope);
         while (cur != null) {
             String curScopeName = NameResolver.scopeName(cur);
-            // Look through definitions recorded in the index to find defs that belong to this scope
+            // Look through definitions recorded in the index to find defs that belong to
+            // this scope
             for (SymbolReference def : index.getDefinitions()) {
                 if (name.equals(def.getName()) && curScopeName != null && curScopeName.equals(def.getUseScopeName())) {
-                    // If this definition occurs before the reference, the ref is satisfied by ancestor
+                    // If this definition occurs before the reference, the ref is satisfied by
+                    // ancestor
                     if (compareByLocation(def, reference) < 0) {
                         return true;
                     }
@@ -163,9 +178,11 @@ public class ScopeCheckAnalyzer {
      * E203: Variable referenced outside its valid scope.
      * <p>
      * Strategy:
-     * - For each REFERENCE that is UNRESOLVED, check if there exists a definition somewhere
+     * - For each REFERENCE that is UNRESOLVED, check if there exists a definition
+     * somewhere
      * in the Flask symbol table (deep definition).
-     * - If a deep definition exists but is not accessible from the use scope -> E203.
+     * - If a deep definition exists but is not accessible from the use scope ->
+     * E203.
      */
     private void checkOutOfScope(FlaskReferenceIndex index) {
         ISymbolTable flaskGlobal = repository.getFlaskGlobal();
@@ -175,14 +192,17 @@ public class ScopeCheckAnalyzer {
 
         for (SymbolReference ref : index.getReferences()) {
             String name = ref.getName();
-            if (name == null || name.isBlank()) continue;
+            if (name == null || name.isBlank())
+                continue;
 
-            // If the reference was resolved (status != UNDEFINED), skip here — accessible or shadowed
+            // If the reference was resolved (status != UNDEFINED), skip here — accessible
+            // or shadowed
             if (ref.isResolved()) {
                 continue;
             }
 
-            // If the reference is unresolved, check if there is a definition somewhere else in the Flask tree
+            // If the reference is unresolved, check if there is a definition somewhere else
+            // in the Flask tree
             Optional<Symbol> deep = flaskRoot.findDeepest(name);
             if (deep.isEmpty()) {
                 // No deep definition exists; this is a true undefined (E001/E002). Skip here.
@@ -195,7 +215,8 @@ public class ScopeCheckAnalyzer {
             ISymbolTable useScope = findScopeByName(flaskRoot, useScopeName);
 
             // If we cannot map use scope, fallback to global as use site
-            if (useScope == null) useScope = flaskRoot;
+            if (useScope == null)
+                useScope = flaskRoot;
 
             // Find defining scope where this name is declared
             ISymbolTable definingScope = findDefiningScope(flaskRoot, name);
@@ -210,12 +231,14 @@ public class ScopeCheckAnalyzer {
                 continue;
             }
 
-            // Special-case loop variables: do not report E203 when definition is in a 'for' scope
+            // Special-case loop variables: do not report E203 when definition is in a 'for'
+            // scope
             if (definingScopeName != null && definingScopeName.contains("for")) {
                 continue;
             }
 
-            // Check accessibility: a use-scope can access the defining scope when definingScope is an ancestor of useScope (or same scope)
+            // Check accessibility: a use-scope can access the defining scope when
+            // definingScope is an ancestor of useScope (or same scope)
             if (!canAccessDefiningScope(useScope, definingScope)) {
                 emitE203(ref, name, definingScopeName);
             }
@@ -227,7 +250,8 @@ public class ScopeCheckAnalyzer {
      * Returns the ISymbolTable with the given name, or null if not found.
      */
     private ISymbolTable findScope(ISymbolTable root, String scopeName) {
-        if (root == null || scopeName == null) return null;
+        if (root == null || scopeName == null)
+            return null;
 
         Queue<ISymbolTable> queue = new LinkedList<>();
         queue.offer(root);
@@ -255,47 +279,24 @@ public class ScopeCheckAnalyzer {
         return findScope(root, scopeName);
     }
 
+    
     /**
-     * Find all scopes that have the given scopeName (BFS). Returns an empty list if none found.
-     * Used when scopes may have non-unique names (e.g. multiple "for" scopes).
-     */
-    private List<ISymbolTable> findAllScopesByName(ISymbolTable root, String scopeName) {
-        List<ISymbolTable> result = new ArrayList<>();
-        if (root == null || scopeName == null) return result;
-
-        Queue<ISymbolTable> queue = new LinkedList<>();
-        queue.offer(root);
-
-        while (!queue.isEmpty()) {
-            ISymbolTable current = queue.poll();
-            String currentName = NameResolver.scopeName(current);
-
-            if (scopeName.equals(currentName)) {
-                result.add(current);
-            }
-
-            if (current instanceof AbstractSymbolTable abstractTable) {
-                for (ISymbolTable child : abstractTable.getChildren()) {
-                    queue.offer(child);
-                }
-            }
-        }
-        return result;
-    }
-
-    /**
-     * Find the scope that defines a given name by searching lookupLocal across the tree.
-     * Returns the first scope found (depth-first search preferring higher nodes to find the defining scope).
+     * Find the scope that defines a given name by searching lookupLocal across the
+     * tree.
+     * Returns the first scope found (depth-first search preferring higher nodes to
+     * find the defining scope).
      */
     private ISymbolTable findDefiningScope(ISymbolTable root, String name) {
-        if (root == null || name == null) return null;
+        if (root == null || name == null)
+            return null;
         if (root.lookupLocal(name).isPresent()) {
             return root;
         }
         if (root instanceof AbstractSymbolTable abstractTable) {
             for (ISymbolTable child : abstractTable.getChildren()) {
                 ISymbolTable found = findDefiningScope(child, name);
-                if (found != null) return found;
+                if (found != null)
+                    return found;
             }
         }
         return null;
@@ -316,7 +317,8 @@ public class ScopeCheckAnalyzer {
 
         ISymbolTable cur = useScope;
         while (cur != null) {
-            if (cur == definingScope) return true;
+            if (cur == definingScope)
+                return true;
             cur = NameResolver.parentOf(cur);
         }
         return false;
@@ -333,14 +335,19 @@ public class ScopeCheckAnalyzer {
         SourceRange loc1 = ref1.getLocation();
         SourceRange loc2 = ref2.getLocation();
 
-        if (loc1 == null && loc2 == null) return 0;
-        if (loc1 == null) return -1;
-        if (loc2 == null) return 1;
+        if (loc1 == null && loc2 == null)
+            return 0;
+        if (loc1 == null)
+            return -1;
+        if (loc2 == null)
+            return 1;
 
-        if (loc1.getStart() == null || loc2.getStart() == null) return 0;
+        if (loc1.getStart() == null || loc2.getStart() == null)
+            return 0;
 
         int lineCompare = Integer.compare(loc1.getStart().getLine(), loc2.getStart().getLine());
-        if (lineCompare != 0) return lineCompare;
+        if (lineCompare != 0)
+            return lineCompare;
 
         return Integer.compare(loc1.getStart().getColumn(), loc2.getStart().getColumn());
     }
