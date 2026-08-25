@@ -1,6 +1,7 @@
 from flask import Flask, render_template, request, redirect, url_for
 
-app = Flask(__name__)
+# Templates live next to this file (FinalTests/*.html)
+app = Flask(__name__, template_folder=".")
 
 
 class Product:

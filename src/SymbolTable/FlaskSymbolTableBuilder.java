@@ -29,6 +29,7 @@ import AST.flask.stmt.ForStmt;
 import AST.flask.stmt.FromImportStmt;
 import AST.flask.stmt.FunctionDefStmt;
 import AST.flask.stmt.IfStmt;
+import AST.flask.stmt.ImportStmt;
 import AST.flask.stmt.ReturnStmt;
 import AST.flask.stmt.Statement;
 import AST.flask.stmt.WhileStmt;
@@ -98,16 +99,6 @@ public class FlaskSymbolTableBuilder extends SymbolTableBuilder {
         }
     }
 
-    @Override
-    public void registerVariable(ISymbolTable table, String name) {
-        recordDefinition(name, null, table, SymbolKind.VARIABLE);
-    }
-
-    @Override
-    public void registerCallable(ISymbolTable table, String name) {
-        recordDefinition(name, null, table, SymbolKind.FUNCTION);
-    }
-
     // -------------------------------------------------------------------------
     // Pass 1: definitions
     // -------------------------------------------------------------------------
@@ -129,7 +120,16 @@ public class FlaskSymbolTableBuilder extends SymbolTableBuilder {
             }
             case FromImportStmt importStmt -> {
                 for (String importedName : importStmt.getNames()) {
-                    recordDefinition(importedName, null, activeTable, SymbolKind.IMPORT);
+                    recordDefinition(importedName, importStmt, activeTable, SymbolKind.IMPORT);
+                }
+            }
+            case ImportStmt importStmt -> {
+                // Python binds only the top-level package for dotted imports,
+                // e.g. `import os.path` makes `os` (not `os.path`) available in scope.
+                for (String moduleName : importStmt.getModules()) {
+                    int dot = moduleName.indexOf('.');
+                    String boundName = dot >= 0 ? moduleName.substring(0, dot) : moduleName;
+                    recordDefinition(boundName, importStmt, activeTable, SymbolKind.IMPORT);
                 }
             }
             case IfStmt ifStmt -> {
@@ -167,14 +167,15 @@ public class FlaskSymbolTableBuilder extends SymbolTableBuilder {
     }
 
     private void collectFunctionDef(FunctionDefStmt functionDef) {
-        recordDefinition(functionDef.getName(), null, activeTable, SymbolKind.FUNCTION);
+        recordDefinition(functionDef.getName(), functionDef, activeTable, SymbolKind.FUNCTION);
 
         ISymbolTable previous = activeTable;
         activeTable = activeTable.enterScope("function:" + functionDef.getName());
         siblingScopeIndex = 0;
 
         for (String parameter : functionDef.getParameters()) {
-            recordDefinition(parameter, null, activeTable, SymbolKind.PARAMETER);
+            // Parameters are bound at function entry: use the def header as their position.
+            recordDefinition(parameter, functionDef, activeTable, SymbolKind.PARAMETER);
         }
 
         collectSuite(functionDef.getBody());
@@ -182,7 +183,7 @@ public class FlaskSymbolTableBuilder extends SymbolTableBuilder {
     }
 
     private void collectClassDef(ClassDefStmt classDef) {
-        recordDefinition(classDef.getName(), null, activeTable, SymbolKind.CLASS);
+        recordDefinition(classDef.getName(), classDef, activeTable, SymbolKind.CLASS);
 
         ISymbolTable previous = activeTable;
         activeTable = activeTable.enterScope("class:" + classDef.getName());
@@ -198,7 +199,15 @@ public class FlaskSymbolTableBuilder extends SymbolTableBuilder {
         }
     }
 
-    private void recordDefinition(String name, IdentifierExpr source, ISymbolTable table, SymbolKind kind) {
+    /**
+     * Record a definition site.
+     *
+     * @param source AST node the definition is anchored to. For assignments this is the
+     *               {@link IdentifierExpr} target; for defs/classes/imports it is the
+     *               statement node, whose range starts at the keyword. Used for the
+     *               ordering that {@code ScopeCheckAnalyzer} relies on to emit E202.
+     */
+    private void recordDefinition(String name, ASTNode source, ISymbolTable table, SymbolKind kind) {
         if (name == null || name.isBlank()) {
             return;
         }

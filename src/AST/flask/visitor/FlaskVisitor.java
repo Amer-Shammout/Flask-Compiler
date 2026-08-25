@@ -168,6 +168,17 @@ public class FlaskVisitor extends FlaskParserBaseVisitor<ASTNode> {
     }
 
     @Override
+    public ASTNode visitImportModule(FlaskParser.ImportModuleContext ctx) {
+
+        List<String> modules = new ArrayList<>();
+        for (var dottedName : ctx.dotted_name()) {
+            modules.add(dottedName.getText());
+        }
+
+        return new ImportStmt(modules, range(ctx));
+    }
+
+    @Override
     public ASTNode visitIf_stmt(FlaskParser.If_stmtContext ctx) {
 
         Expression cond = (Expression) visit(ctx.expr(0));

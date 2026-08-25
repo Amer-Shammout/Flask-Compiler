@@ -5,14 +5,17 @@ import java.util.*;
 /**
  * Collects and manages diagnostic messages during semantic analysis.
  * <p>
- * DiagnosticCollector is a central repository for all diagnostics encountered during
- * compilation (parsing, semantic analysis, type checking, etc.). It provides methods to:
+ * DiagnosticCollector is a central repository for all diagnostics encountered
+ * during
+ * compilation (parsing, semantic analysis, type checking, etc.). It provides
+ * methods to:
  * - Add diagnostics (errors, warnings, infos, hints)
  * - Filter diagnostics by severity
  * - Report all diagnostics in various formats
  * - Track whether errors have been encountered
  * <p>
- * Thread Safety: Not thread-safe; designed for single-threaded compilation phases.
+ * Thread Safety: Not thread-safe; designed for single-threaded compilation
+ * phases.
  */
 public class DiagnosticCollector {
 
@@ -49,7 +52,6 @@ public class DiagnosticCollector {
      */
     private int hintCount;
 
-
     // === Constructor ===
 
     /**
@@ -63,21 +65,32 @@ public class DiagnosticCollector {
         this.hintCount = 0;
     }
 
-
     // === Core Methods ===
+
+    private static int severityOrder(DiagnosticSeverity s) {
+        return switch (s) {
+            case ERROR -> 4;
+            case WARNING -> 3;
+            case INFO -> 2;
+            case HINT -> 1;
+        };
+    }
 
     /**
      * Add a diagnostic to the collection and update severity counts.
      * <p>
      * Deduplication:
-     * - Avoids adding identical diagnostics repeatedly (based on error code, message, location)
+     * - Avoids adding identical diagnostics repeatedly (based on error code,
+     * message, location)
      * - Keys tolerate null source ranges
-     * - Hint is NOT part of deduplication key (multiple hints for same error are treated as duplicates)
+     * - Hint is NOT part of deduplication key (multiple hints for same error are
+     * treated as duplicates)
      *
      * @param diagnostic The Diagnostic to add.
      */
     public void addDiagnostic(Diagnostic diagnostic) {
-        if (diagnostic == null) return;
+        if (diagnostic == null)
+            return;
 
         String code = diagnostic.getErrorCode() != null ? diagnostic.getErrorCode().getCode() : "UNKNOWN_CODE";
         String message = diagnostic.getMessage() != null ? diagnostic.getMessage() : "";
@@ -89,7 +102,8 @@ public class DiagnosticCollector {
         } catch (Exception ignored) {
         }
 
-        // Deduplication key: code + location + message (NOT hint — so same error with different hints is deduplicated)
+        // Deduplication key: code + location + message (NOT hint — so same error with
+        // different hints is deduplicated)
         String key = code + "|" + srcRangeStr + "|" + message;
         if (seen.contains(key)) {
             return;
@@ -110,17 +124,21 @@ public class DiagnosticCollector {
      *
      * @param diags Collection of diagnostics to add.
      */
+    /*
+     * Not Used
+     */
     public void addDiagnostics(Collection<Diagnostic> diags) {
-        if (diags == null) return;
+        if (diags == null)
+            return;
         for (Diagnostic diag : diags) {
             addDiagnostic(diag);
         }
     }
 
-
     // === Query Methods ===
 
     /**
+     * /**
      * Get all collected diagnostics in order.
      *
      * @return Unmodifiable list of all diagnostics.
@@ -180,7 +198,6 @@ public class DiagnosticCollector {
     public List<Diagnostic> getHints() {
         return getDiagnosticsBySeverity(DiagnosticSeverity.HINT);
     }
-
 
     // === Status Methods ===
 
@@ -247,6 +264,8 @@ public class DiagnosticCollector {
         return hintCount;
     }
 
+   
+
     /**
      * Check if the collector is empty (no diagnostics collected).
      *
@@ -256,11 +275,10 @@ public class DiagnosticCollector {
         return diagnostics.isEmpty();
     }
 
-
-    // === Reporting Methods ===
-
+     // === Reporting Methods ===
     /**
-     * Pretty-print all collected diagnostics to standard output in a human-friendly format.
+     * Pretty-print all collected diagnostics to standard output in a human-friendly
+     * format.
      * <p>
      * This delegates to ColoredLogger which centralizes color/formatting logic.
      */
@@ -281,7 +299,8 @@ public class DiagnosticCollector {
     public String toString() {
         StringBuilder sb = new StringBuilder();
         sb.append("=== Diagnostic Summary ===\n");
-        sb.append(String.format("Errors: %d, Warnings: %d, Infos: %d, Hints: %d\n", errorCount, warningCount, infoCount, hintCount));
+        sb.append(String.format("Errors: %d, Warnings: %d, Infos: %d, Hints: %d\n", errorCount, warningCount, infoCount,
+                hintCount));
         sb.append("\n");
 
         List<Diagnostic> sorted = getSortedDiagnostics();
@@ -292,10 +311,14 @@ public class DiagnosticCollector {
         return sb.toString();
     }
 
+
     /**
      * Clear all collected diagnostics and reset counts.
      * <p>
      * Useful when reusing the same collector for multiple analyses or phases.
+     */
+    /**
+     * Unused Now
      */
     public void clear() {
         diagnostics.clear();
@@ -306,8 +329,7 @@ public class DiagnosticCollector {
         hintCount = 0;
     }
 
-
-    // === Helper Methods for Common Diagnostics ===
+     // === Helper Methods for Common Diagnostics ===
 
     /**
      * Add a diagnostic for an undefined variable.
@@ -319,7 +341,20 @@ public class DiagnosticCollector {
      * @param suggestion   Optional suggestion (e.g., "Did you mean 'x'?").
      */
     public void reportUndefinedVariable(AST.SourceRange sourceRange, String variableName, String suggestion) {
-        Diagnostic diag = new Diagnostic(sourceRange, ErrorCode.E001_UNDEFINED_VARIABLE, String.format("Undefined variable '%s'", variableName), suggestion);
+        Diagnostic diag = new Diagnostic(sourceRange, ErrorCode.E001_UNDEFINED_VARIABLE,
+                String.format("Undefined variable '%s'", variableName), suggestion);
+        addDiagnostic(diag);
+    }
+
+    /**
+     * Add a diagnostic for an undefined function (without suggestion).
+     *
+     * @param sourceRange Location in source.
+     * @param fname       Name of the undefined function.
+     */
+    public void reportUndefinedFunction(AST.SourceRange sourceRange, String fname, String suggestion) {
+        Diagnostic diag = new Diagnostic(sourceRange, ErrorCode.E002_UNDEFINED_FUNCTION,
+                String.format("Undefined function '%s'", fname), suggestion);
         addDiagnostic(diag);
     }
 
@@ -328,6 +363,9 @@ public class DiagnosticCollector {
      *
      * @param sourceRange  Location in source.
      * @param variableName Name of the undefined variable.
+     */
+    /**
+     * Unused Now
      */
     public void reportUndefinedVariable(AST.SourceRange sourceRange, String variableName) {
         reportUndefinedVariable(sourceRange, variableName, null);
@@ -344,8 +382,11 @@ public class DiagnosticCollector {
      * @param actualType   Actual/used type.
      * @param suggestion   Optional suggestion for fixing.
      */
-    public void reportTypeMismatch(AST.SourceRange sourceRange, String symbolName, TypeKind expectedType, TypeKind actualType, String suggestion) {
-        Diagnostic diag = new Diagnostic(sourceRange, ErrorCode.E101_TYPE_MISMATCH, String.format("Type mismatch for '%s': expected %s but got %s", symbolName, expectedType, actualType), suggestion, actualType);
+    public void reportTypeMismatch(AST.SourceRange sourceRange, String symbolName, TypeKind expectedType,
+            TypeKind actualType, String suggestion) {
+        Diagnostic diag = new Diagnostic(sourceRange, ErrorCode.E101_TYPE_MISMATCH,
+                String.format("Type mismatch for '%s': expected %s but got %s", symbolName, expectedType, actualType),
+                suggestion, actualType);
         addDiagnostic(diag);
     }
 
@@ -357,7 +398,11 @@ public class DiagnosticCollector {
      * @param expectedType Expected type.
      * @param actualType   Actual/used type.
      */
-    public void reportTypeMismatch(AST.SourceRange sourceRange, String symbolName, TypeKind expectedType, TypeKind actualType) {
+    /*
+     * Unused Now
+     */
+    public void reportTypeMismatch(AST.SourceRange sourceRange, String symbolName, TypeKind expectedType,
+            TypeKind actualType) {
         reportTypeMismatch(sourceRange, symbolName, expectedType, actualType, null);
     }
 
@@ -367,11 +412,13 @@ public class DiagnosticCollector {
      * Generates: E102_TYPE_ERROR
      *
      * @param sourceRange Location in source.
-     * @param operation   Description of the operation (e.g., "addition of str and int").
+     * @param operation   Description of the operation (e.g., "addition of str and
+     *                    int").
      * @param suggestion  Optional suggestion.
      */
     public void reportTypeError(AST.SourceRange sourceRange, String operation, String suggestion) {
-        Diagnostic diag = new Diagnostic(sourceRange, ErrorCode.E102_TYPE_ERROR, String.format("Type error: %s", operation), suggestion);
+        Diagnostic diag = new Diagnostic(sourceRange, ErrorCode.E102_TYPE_ERROR,
+                String.format("Type error: %s", operation), suggestion);
         addDiagnostic(diag);
     }
 
@@ -386,7 +433,8 @@ public class DiagnosticCollector {
      * @param message     Descriptive message.
      * @param suggestion  Optional suggestion.
      */
-    public void reportScopeError(AST.SourceRange sourceRange, String symbolName, ErrorCode errorCode, String message, String suggestion) {
+    public void reportScopeError(AST.SourceRange sourceRange, String symbolName, ErrorCode errorCode, String message,
+            String suggestion) {
         Diagnostic diag = new Diagnostic(sourceRange, errorCode, message, suggestion);
         addDiagnostic(diag);
     }
@@ -398,10 +446,12 @@ public class DiagnosticCollector {
      *
      * @param sourceRange  Location in template.
      * @param variableName Name of the missing Flask variable.
-     * @param suggestion   Optional suggestion (e.g., list of available Flask variables).
+     * @param suggestion   Optional suggestion (e.g., list of available Flask
+     *                     variables).
      */
     public void reportMissingFlaskVariable(AST.SourceRange sourceRange, String variableName, String suggestion) {
-        Diagnostic diag = new Diagnostic(sourceRange, ErrorCode.E004_MISSING_FLASK_VARIABLE, String.format("Flask context variable '%s' not available", variableName), suggestion);
+        Diagnostic diag = new Diagnostic(sourceRange, ErrorCode.E004_MISSING_FLASK_VARIABLE,
+                String.format("Flask context variable '%s' not available", variableName), suggestion);
         addDiagnostic(diag);
     }
 
@@ -413,10 +463,15 @@ public class DiagnosticCollector {
      * @param sourceRange           Location in source where shadowing occurs.
      * @param shadowingVariableName Name of the shadowing variable.
      * @param shadowedVariableName  Name of the shadowed variable.
-     * @param shadowedLocation      Description of where the shadowed variable is from (e.g., "Flask context at app.py:30").
+     * @param shadowedLocation      Description of where the shadowed variable is
+     *                              from (e.g., "Flask context at app.py:30").
      */
-    public void reportShadowing(AST.SourceRange sourceRange, String shadowingVariableName, String shadowedVariableName, String shadowedLocation) {
-        Diagnostic diag = new Diagnostic(sourceRange, ErrorCode.W101_SHADOWING, String.format("Variable '%s' shadows '%s' from %s", shadowingVariableName, shadowedVariableName, shadowedLocation), "This will hide the shadowed variable in this scope.");
+    public void reportShadowing(AST.SourceRange sourceRange, String shadowingVariableName, String shadowedVariableName,
+            String shadowedLocation) {
+        Diagnostic diag = new Diagnostic(
+                sourceRange, ErrorCode.W101_SHADOWING, String.format("Variable '%s' shadows '%s' from %s",
+                        shadowingVariableName, shadowedVariableName, shadowedLocation),
+                "This will hide the shadowed variable in this scope.");
         addDiagnostic(diag);
     }
 
@@ -428,8 +483,12 @@ public class DiagnosticCollector {
      * @param sourceRange Location where symbol is defined.
      * @param symbolName  Name of the unused symbol.
      */
+    /**
+     * Unused Now
+     */
     public void reportUnusedSymbol(AST.SourceRange sourceRange, String symbolName) {
-        Diagnostic diag = new Diagnostic(sourceRange, ErrorCode.W102_UNUSED_SYMBOL, String.format("Variable '%s' is never used", symbolName), null);
+        Diagnostic diag = new Diagnostic(sourceRange, ErrorCode.W102_UNUSED_SYMBOL,
+                String.format("Variable '%s' is never used", symbolName), null);
         addDiagnostic(diag);
     }
 
@@ -440,10 +499,15 @@ public class DiagnosticCollector {
      *
      * @param sourceRange  Location in source.
      * @param symbolName   Name of the symbol.
-     * @param resolvedFrom Where the symbol was resolved from (e.g., "Flask context", "Template local").
+     * @param resolvedFrom Where the symbol was resolved from (e.g., "Flask
+     *                     context", "Template local").
+     */
+    /**
+     * Unused Now
      */
     public void reportSymbolResolved(AST.SourceRange sourceRange, String symbolName, String resolvedFrom) {
-        Diagnostic diag = new Diagnostic(sourceRange, ErrorCode.I001_SYMBOL_RESOLVED, String.format("Symbol '%s' resolved from %s", symbolName, resolvedFrom), null);
+        Diagnostic diag = new Diagnostic(sourceRange, ErrorCode.I001_SYMBOL_RESOLVED,
+                String.format("Symbol '%s' resolved from %s", symbolName, resolvedFrom), null);
         addDiagnostic(diag);
     }
 
@@ -456,8 +520,12 @@ public class DiagnosticCollector {
      * @param symbolName   Name of the symbol.
      * @param inferredType The inferred type.
      */
+    /**
+     * Unused Now
+     */
     public void reportTypeInferred(AST.SourceRange sourceRange, String symbolName, TypeKind inferredType) {
-        Diagnostic diag = new Diagnostic(sourceRange, ErrorCode.I002_TYPE_INFERRED, String.format("Inferred type of '%s' as %s", symbolName, inferredType), null, inferredType);
+        Diagnostic diag = new Diagnostic(sourceRange, ErrorCode.I002_TYPE_INFERRED,
+                String.format("Inferred type of '%s' as %s", symbolName, inferredType), null, inferredType);
         addDiagnostic(diag);
     }
 
@@ -469,10 +537,16 @@ public class DiagnosticCollector {
      * @param sourceRange Location in source.
      * @param suggestion  The suggestion text.
      */
+
+    /**
+     * Unused Now
+     */
     public void reportSuggestion(AST.SourceRange sourceRange, String suggestion) {
         Diagnostic diag = new Diagnostic(sourceRange, ErrorCode.H001_SUGGESTION, suggestion, null);
         addDiagnostic(diag);
     }
+
+    // === Utilities ===
 
     /**
      * Add a hint diagnostic with available symbols.
@@ -482,16 +556,18 @@ public class DiagnosticCollector {
      * @param sourceRange      Location in source.
      * @param availableSymbols List or description of available symbols.
      */
+    /**
+     * Unused Now
+     */
     public void reportAvailableSymbols(AST.SourceRange sourceRange, String availableSymbols) {
-        Diagnostic diag = new Diagnostic(sourceRange, ErrorCode.H002_AVAILABLE_SYMBOLS, String.format("Available symbols: %s", availableSymbols), null);
+        Diagnostic diag = new Diagnostic(sourceRange, ErrorCode.H002_AVAILABLE_SYMBOLS,
+                String.format("Available symbols: %s", availableSymbols), null);
         addDiagnostic(diag);
     }
 
-
-    // === Utilities ===
-
     /**
-     * Return diagnostics sorted by severity (ERROR first) then by source location (line, column).
+     * Return diagnostics sorted by severity (ERROR first) then by source location
+     * (line, column).
      * <p>
      * The comparator is stable and deterministic.
      */
@@ -501,14 +577,16 @@ public class DiagnosticCollector {
             // Severity order: ERROR > WARNING > INFO > HINT
             int orderA = severityOrder(a.getSeverity());
             int orderB = severityOrder(b.getSeverity());
-            if (orderA != orderB) return Integer.compare(orderB, orderA); // higher first
+            if (orderA != orderB)
+                return Integer.compare(orderB, orderA); // higher first
 
             // Compare by source location if available
             if (a.getSourceRange() != null && b.getSourceRange() != null) {
                 try {
                     int lineA = a.getSourceRange().getStart().getLine();
                     int lineB = b.getSourceRange().getStart().getLine();
-                    if (lineA != lineB) return Integer.compare(lineA, lineB);
+                    if (lineA != lineB)
+                        return Integer.compare(lineA, lineB); // - => a < b
                     int colA = a.getSourceRange().getStart().getColumn();
                     int colB = b.getSourceRange().getStart().getColumn();
                     return Integer.compare(colA, colB);
@@ -518,18 +596,10 @@ public class DiagnosticCollector {
 
             // Fallback: compare by error code then message
             int codeCmp = a.getErrorCode().getCode().compareTo(b.getErrorCode().getCode());
-            if (codeCmp != 0) return codeCmp;
+            if (codeCmp != 0)
+                return codeCmp;
             return a.getMessage().compareTo(b.getMessage());
         });
         return list;
-    }
-
-    private static int severityOrder(DiagnosticSeverity s) {
-        return switch (s) {
-            case ERROR -> 4;
-            case WARNING -> 3;
-            case INFO -> 2;
-            case HINT -> 1;
-        };
     }
 }

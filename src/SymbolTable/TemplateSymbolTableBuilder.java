@@ -85,16 +85,6 @@ public class TemplateSymbolTableBuilder extends SymbolTableBuilder {
         }
     }
 
-    @Override
-    public void registerVariable(ISymbolTable table, String name) {
-        recordDefinition(name, null, table, SymbolKind.VARIABLE);
-    }
-
-    @Override
-    public void registerCallable(ISymbolTable table, String name) {
-        recordDefinition(name, null, table, SymbolKind.BLOCK);
-    }
-
     // -------------------------------------------------------------------------
     // Pass 1
     // -------------------------------------------------------------------------

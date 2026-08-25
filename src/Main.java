@@ -16,6 +16,7 @@ import semantic.diagnostics.ColoredLogger;
 import semantic.diagnostics.DiagnosticCollector;
 import semantic.diagnostics.Diagnostic;
 import semantic.diagnostics.ErrorCode;
+import generator.GenerationPipeline;
 import antlr.FlaskLexer;
 import antlr.FlaskParser;
 import antlr.TemplateLexer;
@@ -49,7 +50,7 @@ public class Main {
     private static final String TEMPLATE_AST_OUTPUT = "ast-template.dot";
 
     private enum Mode {
-        FLASK_ONLY, TEMPLATE_ONLY, FLASK_AND_TEMPLATES
+        FLASK_ONLY, TEMPLATE_ONLY, FLASK_AND_TEMPLATES, GENERATE, SERVE
     }
 
     static class NodeData {
@@ -73,6 +74,8 @@ public class Main {
             case FLASK_ONLY -> runFlaskOnly(args);
             case TEMPLATE_ONLY -> runTemplateOnly(args);
             case FLASK_AND_TEMPLATES -> runCombined(args);
+            case GENERATE -> runGenerate(args);
+            case SERVE -> runServer(args);
         }
     }
 
@@ -82,6 +85,8 @@ public class Main {
             case "1", "flask", "flask-only" -> Mode.FLASK_ONLY;
             case "2", "template", "template-only" -> Mode.TEMPLATE_ONLY;
             case "3", "both", "combined", "flask+template" -> Mode.FLASK_AND_TEMPLATES;
+            case "4", "generate", "codegen", "generation" -> Mode.GENERATE;
+            case "5", "server", "serve" -> Mode.SERVE;
             default -> throw new IllegalArgumentException("Unknown mode: " + rawMode);
         };
     }
@@ -94,12 +99,52 @@ public class Main {
         System.out.println("  1) Flask only (with TypeError detection)");
         System.out.println("  2) Flask + single template (with cross-context type checking)");
         System.out.println("  3) Flask + all templates (with cross-context type checking)");
-        System.out.print("\nEnter choice (1-3): ");
+        System.out.println("  4) Generate HTML (Code Generation → output/)");
+        System.out.println("  5) Start Interactive Server (Java regenerates on Add/Delete/Edit)");
+        System.out.print("\nEnter choice (1-5): ");
 
         try (Scanner scanner = new Scanner(System.in)) {
             String choice = scanner.nextLine().trim();
             return parseMode(choice);
         }
+    }
+
+    /**
+     * MODE 5: Interactive server — Java listens for Add/Delete/Edit requests and
+     * regenerates the Jinja AST against the updated in-memory product data on every request.
+     */
+    private static void runServer(String[] args) throws Exception {
+        Path flaskPath = resolvePath(args, 1, DEFAULT_FLASK_SOURCE);
+        Path templateDir = resolvePath(args, 2, DEFAULT_TEMPLATE_DIRECTORY);
+        int port = 5001;
+        new generator.GenerationServer(flaskPath, templateDir, port).start();
+    }
+
+    /**
+     * MODE 4: Code Generation — Flask data + Jinja templates → output/*.html
+     */
+    private static void runGenerate(String[] args) throws Exception {
+        Path flaskPath = resolvePath(args, 1, DEFAULT_FLASK_SOURCE);
+        Path templateDir = resolvePath(args, 2, DEFAULT_TEMPLATE_DIRECTORY);
+        Path outputDir = Paths.get("output").toAbsolutePath().normalize();
+        Path compilerOutputDir = Paths.get("compiler_output").toAbsolutePath().normalize();
+
+        System.out.println("\n╔════════════════════════════════════════════════════════════╗");
+        System.out.println("║                   Code Generation Mode                     ║");
+        System.out.println("╚════════════════════════════════════════════════════════════╝\n");
+        System.out.println("Flask:     " + flaskPath);
+        System.out.println("Templates: " + templateDir);
+        System.out.println("Output:    " + outputDir);
+
+        GenerationPipeline.Result result = new GenerationPipeline(
+                flaskPath, templateDir, outputDir, compilerOutputDir
+        ).run();
+
+        System.out.println("\nGenerated files:");
+        result.generatedHtml().forEach((name, path) ->
+                System.out.println("  ✓ " + name + " → " + path));
+        System.out.println("\nAlso copied support files into output/ (e.g. app.py).");
+        System.out.println("See compiler_output/generation_log.txt for details.");
     }
 
     /**
