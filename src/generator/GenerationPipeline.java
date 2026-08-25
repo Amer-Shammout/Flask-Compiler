@@ -58,7 +58,8 @@ public final class GenerationPipeline {
 
         // --- compiler_output: semantic report (artifact; generation does not use Symbol Table) ---
         Path semanticReport = SemanticReportWriter.writeFlaskReport(
-                flaskProgram, flaskSource, compilerOutputDir.resolve("semantic_report.txt"));
+                flaskProgram, flaskSource, templateDirectory, compilerOutputDir.resolve("semantic_report.txt"));
+
         writer.log("Wrote " + semanticReport.getFileName());
 
         Map<String, Path> generated = new LinkedHashMap<>();
