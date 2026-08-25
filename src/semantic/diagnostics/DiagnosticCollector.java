@@ -119,21 +119,6 @@ public class DiagnosticCollector {
         }
     }
 
-    /**
-     * Add multiple diagnostics at once.
-     *
-     * @param diags Collection of diagnostics to add.
-     */
-    /*
-     * Not Used
-     */
-    public void addDiagnostics(Collection<Diagnostic> diags) {
-        if (diags == null)
-            return;
-        for (Diagnostic diag : diags) {
-            addDiagnostic(diag);
-        }
-    }
 
     // === Query Methods ===
 
@@ -264,7 +249,6 @@ public class DiagnosticCollector {
         return hintCount;
     }
 
-   
 
     /**
      * Check if the collector is empty (no diagnostics collected).
@@ -275,7 +259,8 @@ public class DiagnosticCollector {
         return diagnostics.isEmpty();
     }
 
-     // === Reporting Methods ===
+    // === Reporting Methods ===
+
     /**
      * Pretty-print all collected diagnostics to standard output in a human-friendly
      * format.
@@ -329,7 +314,7 @@ public class DiagnosticCollector {
         hintCount = 0;
     }
 
-     // === Helper Methods for Common Diagnostics ===
+    // === Helper Methods for Common Diagnostics ===
 
     /**
      * Add a diagnostic for an undefined variable.
@@ -364,9 +349,6 @@ public class DiagnosticCollector {
      * @param sourceRange  Location in source.
      * @param variableName Name of the undefined variable.
      */
-    /**
-     * Unused Now
-     */
     public void reportUndefinedVariable(AST.SourceRange sourceRange, String variableName) {
         reportUndefinedVariable(sourceRange, variableName, null);
     }
@@ -383,7 +365,7 @@ public class DiagnosticCollector {
      * @param suggestion   Optional suggestion for fixing.
      */
     public void reportTypeMismatch(AST.SourceRange sourceRange, String symbolName, TypeKind expectedType,
-            TypeKind actualType, String suggestion) {
+                                   TypeKind actualType, String suggestion) {
         Diagnostic diag = new Diagnostic(sourceRange, ErrorCode.E101_TYPE_MISMATCH,
                 String.format("Type mismatch for '%s': expected %s but got %s", symbolName, expectedType, actualType),
                 suggestion, actualType);
@@ -398,11 +380,8 @@ public class DiagnosticCollector {
      * @param expectedType Expected type.
      * @param actualType   Actual/used type.
      */
-    /*
-     * Unused Now
-     */
     public void reportTypeMismatch(AST.SourceRange sourceRange, String symbolName, TypeKind expectedType,
-            TypeKind actualType) {
+                                   TypeKind actualType) {
         reportTypeMismatch(sourceRange, symbolName, expectedType, actualType, null);
     }
 
@@ -434,7 +413,7 @@ public class DiagnosticCollector {
      * @param suggestion  Optional suggestion.
      */
     public void reportScopeError(AST.SourceRange sourceRange, String symbolName, ErrorCode errorCode, String message,
-            String suggestion) {
+                                 String suggestion) {
         Diagnostic diag = new Diagnostic(sourceRange, errorCode, message, suggestion);
         addDiagnostic(diag);
     }
@@ -467,103 +446,17 @@ public class DiagnosticCollector {
      *                              from (e.g., "Flask context at app.py:30").
      */
     public void reportShadowing(AST.SourceRange sourceRange, String shadowingVariableName, String shadowedVariableName,
-            String shadowedLocation) {
+                                String shadowedLocation) {
         Diagnostic diag = new Diagnostic(
                 sourceRange, ErrorCode.W101_SHADOWING, String.format("Variable '%s' shadows '%s' from %s",
-                        shadowingVariableName, shadowedVariableName, shadowedLocation),
+                shadowingVariableName, shadowedVariableName, shadowedLocation),
                 "This will hide the shadowed variable in this scope.");
         addDiagnostic(diag);
     }
 
-    /**
-     * Add a diagnostic for unused variable (warning).
-     * <p>
-     * Generates: W102_UNUSED_SYMBOL
-     *
-     * @param sourceRange Location where symbol is defined.
-     * @param symbolName  Name of the unused symbol.
-     */
-    /**
-     * Unused Now
-     */
-    public void reportUnusedSymbol(AST.SourceRange sourceRange, String symbolName) {
-        Diagnostic diag = new Diagnostic(sourceRange, ErrorCode.W102_UNUSED_SYMBOL,
-                String.format("Variable '%s' is never used", symbolName), null);
-        addDiagnostic(diag);
-    }
 
-    /**
-     * Add an info diagnostic that a symbol was successfully resolved.
-     * <p>
-     * Generates: I001_SYMBOL_RESOLVED
-     *
-     * @param sourceRange  Location in source.
-     * @param symbolName   Name of the symbol.
-     * @param resolvedFrom Where the symbol was resolved from (e.g., "Flask
-     *                     context", "Template local").
-     */
-    /**
-     * Unused Now
-     */
-    public void reportSymbolResolved(AST.SourceRange sourceRange, String symbolName, String resolvedFrom) {
-        Diagnostic diag = new Diagnostic(sourceRange, ErrorCode.I001_SYMBOL_RESOLVED,
-                String.format("Symbol '%s' resolved from %s", symbolName, resolvedFrom), null);
-        addDiagnostic(diag);
-    }
-
-    /**
-     * Add an info diagnostic about type inference.
-     * <p>
-     * Generates: I002_TYPE_INFERRED
-     *
-     * @param sourceRange  Location in source.
-     * @param symbolName   Name of the symbol.
-     * @param inferredType The inferred type.
-     */
-    /**
-     * Unused Now
-     */
-    public void reportTypeInferred(AST.SourceRange sourceRange, String symbolName, TypeKind inferredType) {
-        Diagnostic diag = new Diagnostic(sourceRange, ErrorCode.I002_TYPE_INFERRED,
-                String.format("Inferred type of '%s' as %s", symbolName, inferredType), null, inferredType);
-        addDiagnostic(diag);
-    }
-
-    /**
-     * Add a hint diagnostic with a suggestion.
-     * <p>
-     * Generates: H001_SUGGESTION
-     *
-     * @param sourceRange Location in source.
-     * @param suggestion  The suggestion text.
-     */
-
-    /**
-     * Unused Now
-     */
-    public void reportSuggestion(AST.SourceRange sourceRange, String suggestion) {
-        Diagnostic diag = new Diagnostic(sourceRange, ErrorCode.H001_SUGGESTION, suggestion, null);
-        addDiagnostic(diag);
-    }
 
     // === Utilities ===
-
-    /**
-     * Add a hint diagnostic with available symbols.
-     * <p>
-     * Generates: H002_AVAILABLE_SYMBOLS
-     *
-     * @param sourceRange      Location in source.
-     * @param availableSymbols List or description of available symbols.
-     */
-    /**
-     * Unused Now
-     */
-    public void reportAvailableSymbols(AST.SourceRange sourceRange, String availableSymbols) {
-        Diagnostic diag = new Diagnostic(sourceRange, ErrorCode.H002_AVAILABLE_SYMBOLS,
-                String.format("Available symbols: %s", availableSymbols), null);
-        addDiagnostic(diag);
-    }
 
     /**
      * Return diagnostics sorted by severity (ERROR first) then by source location
