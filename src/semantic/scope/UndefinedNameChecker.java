@@ -265,7 +265,7 @@ public class UndefinedNameChecker {
             if (!exists) {
                 SourceRange range = call.getSourceRange();
                 String hint = "Ensure the function is defined or properly imported before calling.";
-                diagnostics.addDiagnostic(new Diagnostic(range, ErrorCode.E002_UNDEFINED_FUNCTION, String.format("Undefined function '%s'", fname), hint));
+                diagnostics.reportUndefinedFunction(range,fname, hint);
             }
         }
 
