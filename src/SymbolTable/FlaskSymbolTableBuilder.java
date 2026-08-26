@@ -24,10 +24,7 @@ import java.util.Optional;
 public class FlaskSymbolTableBuilder extends SymbolTableBuilder {
 
     private final FlaskReferenceIndex referenceIndex = new FlaskReferenceIndex();
-    /**
-     * Indexes the next child scope to enter during pass 2 (matches pass-1 enterScope order).
-     */
-    private int siblingScopeIndex = 0;
+
 
     public FlaskSymbolTableBuilder(SymbolTableRepository repository) {
         super(repository);
@@ -51,7 +48,6 @@ public class FlaskSymbolTableBuilder extends SymbolTableBuilder {
             }
 
             activeTable = repository.getFlaskGlobal();
-            siblingScopeIndex = 0;
             for (ASTNode child : program.getChildren()) {
                 if (child instanceof Statement statement) {
                     resolveStatement(statement);
@@ -115,12 +111,8 @@ public class FlaskSymbolTableBuilder extends SymbolTableBuilder {
                 collectSuite(ifStmt.getElseSuite());
             }
             case ForStmt forStmt -> {
-                ISymbolTable previous = activeTable;
-                activeTable = activeTable.enterScope("for");
-                siblingScopeIndex = 0;
                 defineAssignmentTarget(forStmt.getIterator());
                 collectSuite(forStmt.getBody());
-                activeTable = previous;
             }
             case WhileStmt whileStmt -> collectSuite(whileStmt.getBody());
             default -> {
@@ -146,7 +138,6 @@ public class FlaskSymbolTableBuilder extends SymbolTableBuilder {
 
         ISymbolTable previous = activeTable;
         activeTable = activeTable.enterScope("function:" + functionDef.getName());
-        siblingScopeIndex = 0;
 
         for (String parameter : functionDef.getParameters()) {
             // Parameters are bound at function entry: use the def header as their position.
@@ -162,7 +153,6 @@ public class FlaskSymbolTableBuilder extends SymbolTableBuilder {
 
         ISymbolTable previous = activeTable;
         activeTable = activeTable.enterScope("class:" + classDef.getName());
-        siblingScopeIndex = 0;
 
         collectSuite(classDef.getBody());
         activeTable = previous;
@@ -203,7 +193,8 @@ public class FlaskSymbolTableBuilder extends SymbolTableBuilder {
                 status,
                 symbol,
                 NameResolver.scopeName(table),
-                table
+                table,                // useScope
+                table                 // definingScope
         ));
     }
 
@@ -250,11 +241,7 @@ public class FlaskSymbolTableBuilder extends SymbolTableBuilder {
             }
             case ForStmt forStmt -> {
                 resolveExpression(forStmt.getIterable());
-                ISymbolTable previous = activeTable;
-                activeTable = enterSiblingScope();
-                siblingScopeIndex = 0;
                 resolveSuite(forStmt.getBody());
-                activeTable = previous;
             }
             case WhileStmt whileStmt -> {
                 resolveExpression(whileStmt.getCondition());
@@ -285,7 +272,6 @@ public class FlaskSymbolTableBuilder extends SymbolTableBuilder {
         }
         ISymbolTable previous = activeTable;
         activeTable = functionScope;
-        siblingScopeIndex = 0;
         resolveSuite(functionDef.getBody());
         activeTable = previous;
     }
@@ -297,7 +283,6 @@ public class FlaskSymbolTableBuilder extends SymbolTableBuilder {
         }
         ISymbolTable previous = activeTable;
         activeTable = classScope;
-        siblingScopeIndex = 0;
         resolveSuite(classDef.getBody());
         activeTable = previous;
     }
@@ -314,18 +299,6 @@ public class FlaskSymbolTableBuilder extends SymbolTableBuilder {
         return null;
     }
 
-    /**
-     * Re-enters the next child scope created during pass 1 at this level.
-     */
-    private ISymbolTable enterSiblingScope() {
-        if (!(activeTable instanceof AbstractSymbolTable parent)) {
-            return activeTable;
-        }
-        if (siblingScopeIndex >= parent.children.size()) {
-            return activeTable;
-        }
-        return parent.children.get(siblingScopeIndex++);
-    }
 
     /**
      * Walk an expression tree and resolve every {@link IdentifierExpr} as a reference.
@@ -402,6 +375,18 @@ public class FlaskSymbolTableBuilder extends SymbolTableBuilder {
         Optional<ScopeBinding> binding = NameResolver.resolve(activeTable, name);
         ResolutionStatus status = NameResolver.toStatus(binding);
 
+        ISymbolTable definingScope = null;
+        if (binding.isPresent()) {
+            definingScope = binding.get().getDefiningScope();
+        } else {
+            if (repository.getFlaskGlobal() instanceof FlaskSymbolTable flaskRoot) {
+                Optional<Symbol> deep = flaskRoot.findDeepest(name);
+                if (deep.isPresent()) {
+                    definingScope = findDefiningScope(flaskRoot, name);
+                }
+            }
+        }
+
         referenceIndex.record(new SymbolReference(
                 name,
                 SymbolUseKind.REFERENCE,
@@ -411,8 +396,23 @@ public class FlaskSymbolTableBuilder extends SymbolTableBuilder {
                 status,
                 binding.map(ScopeBinding::getSymbol).orElse(null),
                 binding.map(b -> NameResolver.scopeName(b.getDefiningScope())).orElse(null),
-                activeTable
+                activeTable,          // useScope
+                definingScope  // definingScope
         ));
+    }
+
+    private ISymbolTable findDefiningScope(ISymbolTable root, String name) {
+        if (root == null || name == null) return null;
+        if (root.lookupLocal(name).isPresent()) {
+            return root;
+        }
+        if (root instanceof AbstractSymbolTable abstractTable) {
+            for (ISymbolTable child : abstractTable.getChildren()) {
+                ISymbolTable found = findDefiningScope(child, name);
+                if (found != null) return found;
+            }
+        }
+        return null;
     }
 
     private String originFor(ISymbolTable table) {
