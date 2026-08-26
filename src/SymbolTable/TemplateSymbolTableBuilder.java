@@ -3,35 +3,11 @@ package SymbolTable;
 import AST.ASTNode;
 import AST.Program;
 import AST.SourceRange;
-import AST.template.css.CssDeclaration;
-import AST.template.css.CssJinjaExpressionValue;
-import AST.template.css.CssJinjaValueIf;
-import AST.template.css.CssNode;
-import AST.template.css.CssRule;
-import AST.template.css.CssStylesheet;
-import AST.template.css.CssValue;
-import AST.template.css.CssValuePart;
-import AST.template.html.HtmlDocument;
-import AST.template.html.HtmlElement;
-import AST.template.html.HtmlNormalElement;
-import AST.template.html.HtmlSelfClosingElement;
-import AST.template.html.HtmlStyleElement;
-import AST.template.html.HtmlVoidElement;
+import AST.template.css.*;
+import AST.template.html.*;
 import AST.template.jinja.JinjaBody;
-import AST.template.jinja.expr.JinjaAttrExpr;
-import AST.template.jinja.expr.JinjaBinaryExpr;
-import AST.template.jinja.expr.JinjaCallExpr;
-import AST.template.jinja.expr.JinjaExpr;
-import AST.template.jinja.expr.JinjaFilterExpr;
-import AST.template.jinja.expr.JinjaIdentifierExpr;
-import AST.template.jinja.expr.JinjaUnaryExpr;
-import AST.template.jinja.stmt.JinjaBlockStmt;
-import AST.template.jinja.stmt.JinjaElifClause;
-import AST.template.jinja.stmt.JinjaExtendsStmt;
-import AST.template.jinja.stmt.JinjaForStmt;
-import AST.template.jinja.stmt.JinjaIfStmt;
-import AST.template.jinja.stmt.JinjaIncludeStmt;
-import AST.template.jinja.stmt.JinjaStmt;
+import AST.template.jinja.expr.*;
+import AST.template.jinja.stmt.*;
 import semantic.diagnostics.ResolutionStatus;
 
 import java.util.List;
@@ -48,6 +24,21 @@ public class TemplateSymbolTableBuilder extends SymbolTableBuilder {
     public TemplateSymbolTableBuilder(SymbolTableRepository repository) {
         super(repository);
         this.activeTable = repository.getTemplateGlobal();
+    }
+
+    private static String normalizeTemplateName(String raw) {
+        if (raw == null) {
+            return null;
+        }
+        String trimmed = raw.trim();
+        if (trimmed.length() >= 2) {
+            char first = trimmed.charAt(0);
+            char last = trimmed.charAt(trimmed.length() - 1);
+            if ((first == '"' && last == '"') || (first == '\'' && last == '\'')) {
+                return trimmed.substring(1, trimmed.length() - 1);
+            }
+        }
+        return trimmed;
     }
 
     public TemplateReferenceIndex getReferenceIndex() {
@@ -77,6 +68,10 @@ public class TemplateSymbolTableBuilder extends SymbolTableBuilder {
         throw new UnsupportedOperationException("Use buildTemplate(ASTNode) for template AST roots.");
     }
 
+    // -------------------------------------------------------------------------
+    // Pass 1
+    // -------------------------------------------------------------------------
+
     @Override
     public void visit(ASTNode node) {
         if (node != null) {
@@ -84,10 +79,6 @@ public class TemplateSymbolTableBuilder extends SymbolTableBuilder {
             resolveReferences(node);
         }
     }
-
-    // -------------------------------------------------------------------------
-    // Pass 1
-    // -------------------------------------------------------------------------
 
     private void collectDefinitions(ASTNode node) {
         if (node == null) {
@@ -153,6 +144,7 @@ public class TemplateSymbolTableBuilder extends SymbolTableBuilder {
         switch (stmt) {
             case JinjaForStmt forStmt -> {
                 ISymbolTable previous = activeTable;
+                int previousSiblingIndex = siblingScopeIndex;
                 activeTable = activeTable.enterScope("for");
                 siblingScopeIndex = 0;
                 for (String variable : forStmt.getVariables()) {
@@ -160,14 +152,17 @@ public class TemplateSymbolTableBuilder extends SymbolTableBuilder {
                 }
                 collectNodes(forStmt.getBody().getBodyChildren());
                 activeTable = previous;
+                siblingScopeIndex = previousSiblingIndex;
             }
             case JinjaBlockStmt blockStmt -> {
                 recordDefinition(blockStmt.getName(), null, activeTable, SymbolKind.BLOCK);
                 ISymbolTable previous = activeTable;
+                int previousSiblingIndex = siblingScopeIndex;
                 activeTable = activeTable.enterScope("block:" + blockStmt.getName());
                 siblingScopeIndex = 0;
                 collectNodes(blockStmt.getBody().getBodyChildren());
                 activeTable = previous;
+                siblingScopeIndex = previousSiblingIndex;
             }
             case JinjaIfStmt ifStmt -> {
                 collectNodes(ifStmt.getThenBody().getBodyChildren());
@@ -188,6 +183,10 @@ public class TemplateSymbolTableBuilder extends SymbolTableBuilder {
         }
     }
 
+    // -------------------------------------------------------------------------
+    // Pass 2
+    // -------------------------------------------------------------------------
+
     private void collectNodes(List<? extends ASTNode> nodes) {
         if (nodes == null) {
             return;
@@ -196,10 +195,6 @@ public class TemplateSymbolTableBuilder extends SymbolTableBuilder {
             collectDefinitions(child);
         }
     }
-
-    // -------------------------------------------------------------------------
-    // Pass 2
-    // -------------------------------------------------------------------------
 
     private void resolveReferences(ASTNode node) {
         if (node == null) {
@@ -262,10 +257,13 @@ public class TemplateSymbolTableBuilder extends SymbolTableBuilder {
             case JinjaForStmt forStmt -> {
                 resolveJinjaExpr(forStmt.getIterable());
                 ISymbolTable previous = activeTable;
+                int previousSiblingIndex = siblingScopeIndex;
                 activeTable = enterSiblingScope();
+                int nextSiblingIndex = siblingScopeIndex;
                 siblingScopeIndex = 0;
                 resolveNodes(forStmt.getBody().getBodyChildren());
                 activeTable = previous;
+                siblingScopeIndex = nextSiblingIndex;
             }
             case JinjaBlockStmt blockStmt -> {
                 ISymbolTable blockScope = findNamedChildScope("block:" + blockStmt.getName());
@@ -273,10 +271,12 @@ public class TemplateSymbolTableBuilder extends SymbolTableBuilder {
                     return;
                 }
                 ISymbolTable previous = activeTable;
+                int previousSiblingIndex = siblingScopeIndex;
                 activeTable = blockScope;
                 siblingScopeIndex = 0;
                 resolveNodes(blockStmt.getBody().getBodyChildren());
                 activeTable = previous;
+                siblingScopeIndex = previousSiblingIndex;
             }
             case JinjaIfStmt ifStmt -> {
                 resolveJinjaExpr(ifStmt.getCondition());
@@ -333,6 +333,10 @@ public class TemplateSymbolTableBuilder extends SymbolTableBuilder {
         }
     }
 
+    // -------------------------------------------------------------------------
+    // Shared helpers
+    // -------------------------------------------------------------------------
+
     private void resolveNodes(List<? extends ASTNode> nodes) {
         if (nodes == null) {
             return;
@@ -341,10 +345,6 @@ public class TemplateSymbolTableBuilder extends SymbolTableBuilder {
             resolveReferences(child);
         }
     }
-
-    // -------------------------------------------------------------------------
-    // Shared helpers
-    // -------------------------------------------------------------------------
 
     private void recordDefinition(
             String name,
@@ -369,7 +369,9 @@ public class TemplateSymbolTableBuilder extends SymbolTableBuilder {
                 NameResolver.scopeName(table),
                 status,
                 symbol,
-                NameResolver.scopeName(table)
+                NameResolver.scopeName(table),
+                table,                // useScope
+                table                 // definingScope
         ));
     }
 
@@ -377,6 +379,18 @@ public class TemplateSymbolTableBuilder extends SymbolTableBuilder {
         String name = identifier.getName();
         Optional<ScopeBinding> binding = NameResolver.resolve(activeTable, name);
         ResolutionStatus status = NameResolver.toStatus(binding);
+
+        ISymbolTable definingScope = null;
+        if (binding.isPresent()) {
+            definingScope = binding.get().getDefiningScope();
+        } else {
+            for (SymbolReference def : referenceIndex.getDefinitions()) {
+                if (name.equals(def.getName())) {
+                    definingScope = def.getDefiningScope().orElse(null);
+                    break;
+                }
+            }
+        }
 
         referenceIndex.record(new SymbolReference(
                 name,
@@ -386,7 +400,9 @@ public class TemplateSymbolTableBuilder extends SymbolTableBuilder {
                 NameResolver.scopeName(activeTable),
                 status,
                 binding.map(ScopeBinding::getSymbol).orElse(null),
-                binding.map(b -> NameResolver.scopeName(b.getDefiningScope())).orElse(null)
+                binding.map(b -> NameResolver.scopeName(b.getDefiningScope())).orElse(null),
+                activeTable,          // useScope
+                definingScope  // definingScope
         ));
     }
 
@@ -432,20 +448,5 @@ public class TemplateSymbolTableBuilder extends SymbolTableBuilder {
             return templateTable.getTemplateName();
         }
         return null;
-    }
-
-    private static String normalizeTemplateName(String raw) {
-        if (raw == null) {
-            return null;
-        }
-        String trimmed = raw.trim();
-        if (trimmed.length() >= 2) {
-            char first = trimmed.charAt(0);
-            char last = trimmed.charAt(trimmed.length() - 1);
-            if ((first == '"' && last == '"') || (first == '\'' && last == '\'')) {
-                return trimmed.substring(1, trimmed.length() - 1);
-            }
-        }
-        return trimmed;
     }
 }
