@@ -14,6 +14,11 @@ def use_before_definition():
 def another_e202():
     y = x + 1         # E202
     x = 5
+    for _ in range(3):
+        temp = 100
+    print(temp)   # There is no E203 here because for don't create a new scope.
+
+print(temp)   # E203
 
 
 # ======================

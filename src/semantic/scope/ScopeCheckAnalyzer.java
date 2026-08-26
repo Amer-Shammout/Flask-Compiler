@@ -28,7 +28,7 @@ public class ScopeCheckAnalyzer {
     private final FlaskSymbolTableBuilder builder;
 
     public ScopeCheckAnalyzer(SymbolTableRepository repository, DiagnosticCollector diagnostics,
-                              FlaskSymbolTableBuilder builder) {
+            FlaskSymbolTableBuilder builder) {
         this.repository = repository;
         this.diagnostics = diagnostics;
         this.builder = builder;
@@ -154,7 +154,7 @@ public class ScopeCheckAnalyzer {
      * definitions by scope name to ancestors of the provided useScope.
      */
     private boolean hasAncestorDefinitionBefore(FlaskReferenceIndex index, ISymbolTable useScope, String name,
-                                                SymbolReference reference) {
+            SymbolReference reference) {
         ISymbolTable cur = NameResolver.parentOf(useScope);
         while (cur != null) {
             String curScopeName = NameResolver.scopeName(cur);
@@ -197,109 +197,38 @@ public class ScopeCheckAnalyzer {
 
             // If the reference was resolved (status != UNDEFINED), skip here — accessible
             // or shadowed
-            if (ref.isResolved()) {
+            if (ref.isResolved())
                 continue;
-            }
 
             // If the reference is unresolved, check if there is a definition somewhere else
             // in the Flask tree
             Optional<Symbol> deep = flaskRoot.findDeepest(name);
-            if (deep.isEmpty()) {
+            if (deep.isEmpty())
                 // No deep definition exists; this is a true undefined (E001/E002). Skip here.
                 continue;
+
+            Optional<ISymbolTable> useScopeOpt = ref.getUseScope();
+            if (useScopeOpt.isEmpty()) {
+                useScopeOpt = Optional.of(flaskRoot); // fallback
             }
+            ISymbolTable useScope = useScopeOpt.get();
 
-            // There is a deep definition somewhere -> check accessibility from use-scope
-            String useScopeName = ref.getUseScopeName();
-            // Map useScopeName to actual ISymbolTable
-            ISymbolTable useScope = findScopeByName(flaskRoot, useScopeName);
+            Optional<ISymbolTable> definingScopeOpt = ref.getDefiningScope();
 
-            // If we cannot map use scope, fallback to global as use site
-            if (useScope == null)
-                useScope = flaskRoot;
-
-            // Find defining scope where this name is declared
-            ISymbolTable definingScope = findDefiningScope(flaskRoot, name);
-            if (definingScope == null) {
-                // Can't locate the defining scope object - be conservative and skip
+            if (definingScopeOpt.isEmpty())
                 continue;
-            }
 
+            ISymbolTable definingScope = definingScopeOpt.get();
             String definingScopeName = NameResolver.scopeName(definingScope);
-            // Skip builtins/runtime as they are considered accessible
+
             if ("python-builtins".equals(definingScopeName) || "python-runtime".equals(definingScopeName)) {
                 continue;
             }
 
-            // Special-case loop variables: do not report E203 when definition is in a 'for'
-            // scope
-            if (definingScopeName != null && definingScopeName.contains("for")) {
-                continue;
-            }
-
-            // Check accessibility: a use-scope can access the defining scope when
-            // definingScope is an ancestor of useScope (or same scope)
             if (!canAccessDefiningScope(useScope, definingScope)) {
                 emitE203(ref, name, definingScopeName);
             }
         }
-    }
-
-    /**
-     * Search for a scope by name in the scope tree (BFS).
-     * Returns the ISymbolTable with the given name, or null if not found.
-     */
-    private ISymbolTable findScope(ISymbolTable root, String scopeName) {
-        if (root == null || scopeName == null)
-            return null;
-
-        Queue<ISymbolTable> queue = new LinkedList<>();
-        queue.offer(root);
-
-        while (!queue.isEmpty()) {
-            ISymbolTable current = queue.poll();
-            String currentName = NameResolver.scopeName(current);
-
-            if (scopeName.equals(currentName)) {
-                return current;
-            }
-
-            if (current instanceof AbstractSymbolTable abstractTable) {
-                for (ISymbolTable child : abstractTable.getChildren()) {
-                    queue.offer(child);
-                }
-            }
-        }
-
-        return null;
-    }
-
-    // Convenience wrapper with clearer name
-    private ISymbolTable findScopeByName(ISymbolTable root, String scopeName) {
-        return findScope(root, scopeName);
-    }
-
-    
-    /**
-     * Find the scope that defines a given name by searching lookupLocal across the
-     * tree.
-     * Returns the first scope found (depth-first search preferring higher nodes to
-     * find the defining scope).
-     */
-    private ISymbolTable findDefiningScope(ISymbolTable root, String name) {
-        if (root == null || name == null)
-            return null;
-        if (root.lookupLocal(name).isPresent()) {
-            return root;
-        }
-        if (root instanceof AbstractSymbolTable abstractTable) {
-            for (ISymbolTable child : abstractTable.getChildren()) {
-                ISymbolTable found = findDefiningScope(child, name);
-                if (found != null)
-                    return found;
-            }
-        }
-        return null;
     }
 
     /**

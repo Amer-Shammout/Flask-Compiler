@@ -19,6 +19,7 @@ public final class SymbolReference {
     private final String useScopeName;
     private final ResolutionStatus status;
     private final Symbol resolvedSymbol;
+    private final Optional<ISymbolTable> definingScope;
     private final String definingScopeName;
 
 
@@ -32,7 +33,9 @@ public final class SymbolReference {
             ResolutionStatus status,
             Symbol resolvedSymbol,
             String definingScopeName,
-            ISymbolTable useScope) {
+            ISymbolTable useScope,
+            ISymbolTable definingScope
+    ) {
         this.name = name;
         this.useKind = useKind;
         this.location = location;
@@ -42,6 +45,7 @@ public final class SymbolReference {
         this.resolvedSymbol = resolvedSymbol;
         this.definingScopeName = definingScopeName;
         this.useScope = Optional.ofNullable(useScope);
+        this.definingScope = Optional.ofNullable(definingScope);
     }
 
     public SymbolReference(
@@ -53,7 +57,7 @@ public final class SymbolReference {
             ResolutionStatus status,
             Symbol resolvedSymbol,
             String definingScopeName) {
-        this(name, useKind, location, sourceNode, useScopeName, status, resolvedSymbol, definingScopeName, null);
+        this(name, useKind, location, sourceNode, useScopeName, status, resolvedSymbol, definingScopeName, null, null);
 
     }
 
@@ -88,6 +92,10 @@ public final class SymbolReference {
 
     public Symbol getResolvedSymbol() {
         return resolvedSymbol;
+    }
+
+    public Optional<ISymbolTable> getDefiningScope() {
+        return definingScope;
     }
 
     public String getDefiningScopeName() {
