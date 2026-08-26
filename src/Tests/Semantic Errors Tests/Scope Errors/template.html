@@ -1,86 +1,46 @@
 <!DOCTYPE html>
-
 <html>
-<head>
-    <title>Products</title>
-
-    <style>
-        body {
-            font-family: Arial;
-            margin: 20px;
-        }
-
-        table {
-            width: 100%;
-            border: 1px solid #cccccc;
-        }
-
-        th {
-            background: #eeeeee;
-            padding: 10px;
-        }
-
-        td {
-            padding: 10px;
-        }
-
-        .btn {
-            padding: 8px;
-            border: 1px solid #333333;
-            text-decoration: none;
-        }
-    </style>
-</head>
-
 <body>
 
-<h1>Products</h1>
+{# حالة صحيحة: product معرف في for الخارجية ويستخدم داخلها #}
+{% for product in products %}
+<div>{{ product.name }}</div>
 
-<p>
-    <a class="btn" href="/products/add">Add Product</a>
-</p>
+{# حالة صحيحة: item معرف في for الداخلية ويستخدم داخلها #}
+{% for item in product.items %}
+<span>{{ item }}</span>
 
-<table>
+{# حالة صحيحة: يمكن الوصول إلى product من الحلقة الداخلية لأن for الخارجية أب #}
+<b>{{ product.id }}</b>
+{% endfor %}
 
-    <tr>
-        <th>ID</th>
-        <th>Name</th>
-        <th>Price</th>
-        <th>Status</th>
-        <th>Action</th>
-    </tr>
+{# حالة خطأ: item غير متاح هنا لأننا خارج الحلقة الداخلية #}
+<p>{{ item }}</p>          {# ❌ يجب أن يعطي E203 #}
 
-    {% for product in products %}
+{% endfor %}
 
-    <tr>
+{# حالة خطأ: product غير متاح هنا لأننا خارج الحلقة الخارجية #}
+<p>{{ product.id }}</p>      {# ❌ يجب أن يعطي E203 #}
 
-        <td>{{ product.id }}</td>
+{# حالة صحيحة: متغير من حلقة for متداخلة داخل if (if لا ينشئ نطاقاً) #}
+{% for category in categories %}
+{% if category.active %}
+<div>{{ category.name }}</div>
+{% endif %}
+{% endfor %}
 
-        <td>{{ product.name }}</td>
+{# حالة خطأ: category غير متاح خارج الحلقة #}
+<p>{{ category.name }}</p>   {# ❌ يجب أن يعطي E203 #}
 
-        <td>{{ product.price }}</td>
+{# حالة block: المتغير داخل block لا يتاح خارجه #}
+{% block content %}
+{% for entry in entries %}
+<p>{{ entry.title }}</p>
+{% endfor %}
+{% endblock %}
 
-        <td>
-            {% if product.in_stock %}
-            In Stock
-            {% else %}
-            Out Of Stock
-            {% endif %}
-        </td>
-
-        <td>
-            <a href="/products/details?id={{ product.id }}">
-                View
-            </a>
-        </td>
-
-    </tr>
-
-    {% endfor %}
-
-    <td>{{ product.id }}</td>
-
-</table>
+{# حالة خطأ: entry غير متاح خارج block و for #}
+<p>{{ entry.title }}</p>     {# ❌ يجب أن يعطي E203 #}
 
 </body>
 </html>

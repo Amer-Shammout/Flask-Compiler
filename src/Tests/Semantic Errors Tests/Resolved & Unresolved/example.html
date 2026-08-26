@@ -1,0 +1,19 @@
+{% for product in products %}            {# DEFINITION: product in for scope #}
+    {{ product.name }}                   {# REFERENCE: product → RESOLVED (loop variable) #}
+
+    {% for item in product.items %}      {# DEFINITION: item in inner for scope #}
+        {{ item }}                       {# REFERENCE: item → RESOLVED (inner loop variable) #}
+        {{ product.id }}                 {# REFERENCE: product → RESOLVED (outer loop, ancestor scope) #}
+    {% endfor %}
+
+    {{ item }}                           {# REFERENCE: item → UNDEFINED (out of inner loop scope) → E203 #}
+{% endfor %}
+
+{{ product }}                            {# REFERENCE: product → UNDEFINED (out of outer loop scope) → E203 #}
+
+{% for x in list1 %}                     {# DEFINITION: x in outer for #}
+    {% for x in list2 %}                 {# DEFINITION: x in inner for, shadows outer → SHADOWED definition #}
+        {{ x }}                          {# REFERENCE: x → SHADOWED (resolves to inner x, shadows outer) #}
+    {% endfor %}
+    {{ x }}                              {# REFERENCE: x → RESOLVED (outer x, no shadowing now) #}
+{% endfor %}
