@@ -4,56 +4,38 @@ import AST.flask.expr.*;
 import AST.flask.literal.*;
 import semantic.diagnostics.TypeKind;
 
-import java.util.*;
-
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Stack;
 
 public class TypeInferenceEngine {
 
     private final Stack<Map<String, TypeKind>> scopeStack = new Stack<>();
-
-    // new: store inferred per-variable list-element types (non-parametric)
     private final Map<String, TypeKind> listElementTypes = new HashMap<>();
 
     public TypeInferenceEngine() {
-        //  global scope
-        scopeStack.push(new HashMap<>());
+        scopeStack.push(new HashMap<>()); // global scope
     }
 
-    /**
-     * open new scope (ex: in function)
-     */
+    /* -------------------- Scope management -------------------- */
+
     public void enterScope() {
         scopeStack.push(new HashMap<>(scopeStack.peek()));
     }
 
-    /**
-     * close scope
-     */
     public void exitScope() {
         if (scopeStack.size() > 1) {
             scopeStack.pop();
         }
     }
 
+    /* -------------------- Variable types -------------------- */
 
     public void recordVariableType(String name, TypeKind type) {
         if (!scopeStack.isEmpty()) {
             scopeStack.peek().put(name, type);
         }
     }
-
-    // new: record per-variable list element type (e.g., arr -> INT / FLOAT / STR / UNKNOWN)
-    public void recordListElementType(String name, TypeKind elementType) {
-        if (name != null) {
-            listElementTypes.put(name, elementType != null ? elementType : TypeKind.UNKNOWN);
-        }
-    }
-
-    // new: lookup recorded element type for a variable (returns UNKNOWN if not recorded)
-    public TypeKind lookupListElementType(String name) {
-        return listElementTypes.getOrDefault(name, TypeKind.UNKNOWN);
-    }
-
 
     public TypeKind lookupVariableType(String name) {
         for (int i = scopeStack.size() - 1; i >= 0; i--) {
@@ -65,106 +47,88 @@ public class TypeInferenceEngine {
         return TypeKind.UNKNOWN;
     }
 
-    /**
-     * infer type
-     */
-    public TypeKind inferType(Expression expr) {
-        if (expr == null) {
-            return TypeKind.UNKNOWN;
-        }
+    /* -------------------- List element types -------------------- */
 
-        // Literals
-        if (expr instanceof StringLiteralExpr) {
-            return TypeKind.STR;
+    public void recordListElementType(String name, TypeKind elementType) {
+        if (name != null) {
+            listElementTypes.put(name, elementType != null ? elementType : TypeKind.UNKNOWN);
         }
-        if (expr instanceof NumberLiteralExpr numExpr) {
-            return inferNumberType(numExpr);
-        }
-        if (expr instanceof BooleanLiteralExpr) {
-            return TypeKind.BOOL;
-        }
-        if (expr instanceof NoneLiteralExpr) {
-            return TypeKind.NONE;
-        }
-        if (expr instanceof ListLiteralExpr) {
-            return TypeKind.LIST;
-        }
-        if (expr instanceof SetLiteralExpr) {
-            return TypeKind.SET;
-        }
-
-        // Identifiers - search of variable
-        if (expr instanceof IdentifierExpr idExpr) {
-            return lookupVariableType(idExpr.getName());
-        }
-
-        // Binary operations
-        if (expr instanceof BinaryExpr binExpr) {
-            return inferBinaryOpType(binExpr);
-        }
-
-        // Comparisons return bool
-        if (expr instanceof CompareExpr) {
-            return TypeKind.BOOL;
-        }
-
-        // Unary operations
-        if (expr instanceof UnaryExpr unaryExpr) {
-            return inferUnaryOpType(unaryExpr);
-        }
-
-        // Function calls
-        if (expr instanceof CallExpr callExpr) {
-            return inferCallType(callExpr);
-        }
-
-        // Attributes
-        if (expr instanceof AttributeExpr) {
-            return TypeKind.UNKNOWN;
-        }
-
-        // Index access
-        if (expr instanceof IndexExpr idxExpr) {
-            return inferIndexType(idxExpr);
-        }
-
-        // Lambda functions
-        if (expr instanceof LambdaExpr) {
-            return TypeKind.FUNCTION;
-        }
-
-        return TypeKind.UNKNOWN;
     }
+
+    public TypeKind lookupListElementType(String name) {
+        return listElementTypes.getOrDefault(name, TypeKind.UNKNOWN);
+    }
+
+    /* -------------------- Type inference -------------------- */
+
+    public TypeKind inferType(Expression expr) {
+        return switch (expr) {
+            case null -> TypeKind.UNKNOWN;
+
+            // Literals
+            case StringLiteralExpr ignored -> TypeKind.STR;
+            case NumberLiteralExpr numExpr -> inferNumberType(numExpr);
+            case BooleanLiteralExpr ignored -> TypeKind.BOOL;
+            case NoneLiteralExpr ignored -> TypeKind.NONE;
+            case ListLiteralExpr ignored -> TypeKind.LIST;
+            case SetLiteralExpr ignored -> TypeKind.SET;
+
+            // Identifiers
+            case IdentifierExpr idExpr -> lookupVariableType(idExpr.getName());
+
+            // Binary operations
+            case BinaryExpr binExpr -> inferBinaryOpType(binExpr);
+
+            // Comparisons
+            case CompareExpr ignored -> TypeKind.BOOL;
+
+            // Unary operations
+            case UnaryExpr unaryExpr -> inferUnaryOpType(unaryExpr);
+
+            // Function calls
+            case CallExpr callExpr -> inferCallType(callExpr);
+
+            // Attributes
+            case AttributeExpr ignored -> TypeKind.UNKNOWN;
+
+            // Index access
+            case IndexExpr idxExpr -> inferIndexType(idxExpr);
+
+            // Lambda functions
+            case LambdaExpr ignored -> TypeKind.FUNCTION;
+
+            default -> TypeKind.UNKNOWN;
+        };
+    }
+
+    /* -------------------- Helpers -------------------- */
 
     private TypeKind inferNumberType(NumberLiteralExpr numExpr) {
         String value = numExpr.getValue();
-        if (value.contains(".")) {
+        if (value.contains(".") || value.contains("e") || value.contains("E")) {
             return TypeKind.FLOAT;
         }
         return TypeKind.INT;
     }
-
 
     private TypeKind inferBinaryOpType(BinaryExpr binExpr) {
         TypeKind left = inferType(binExpr.getLeft());
         TypeKind right = inferType(binExpr.getRight());
         String op = binExpr.getOperator();
 
-        // Arithmetic operations
-        if (op.equals("+") || op.equals("-") || op.equals("*") || op.equals("/") || op.equals("//") || op.equals("%")) {
+        if (isArithmeticOperator(op)) {
             return inferArithmeticType(left, right, op);
         }
 
-        // Bitwise operations
-        if (op.equals("&") || op.equals("|") || op.equals("^") || op.equals("<<") || op.equals(">>")) {
-            if ((left == TypeKind.INT || left == TypeKind.UNKNOWN) && (right == TypeKind.INT || right == TypeKind.UNKNOWN)) {
+        if (isBitwiseOperator(op)) {
+            boolean bothIntOrUnknown = (left == TypeKind.INT || left == TypeKind.UNKNOWN)
+                    && (right == TypeKind.INT || right == TypeKind.UNKNOWN);
+            if (bothIntOrUnknown) {
                 return TypeKind.INT;
             }
         }
 
-
-        // Boolean operations
-        if (op.equals("and") || op.equals("or")) {
+        if (isBooleanOperator(op)) {
             return TypeKind.BOOL;
         }
 
@@ -172,19 +136,20 @@ public class TypeInferenceEngine {
     }
 
     private TypeKind inferArithmeticType(TypeKind left, TypeKind right, String op) {
-        // String concatenation
+        // String/List concatenation
         if (op.equals("+")) {
-            if (left == TypeKind.STR && right == TypeKind.STR) {
-                return TypeKind.STR;
-            }
-            if (left == TypeKind.LIST && right == TypeKind.LIST) {
-                return TypeKind.LIST;
-            }
+            if (left == TypeKind.STR && right == TypeKind.STR) return TypeKind.STR;
+            if (left == TypeKind.LIST && right == TypeKind.LIST) return TypeKind.LIST;
         }
 
         // List/String repetition
         if (op.equals("*")) {
-            if ((left == TypeKind.LIST && right == TypeKind.INT) || (left == TypeKind.INT && right == TypeKind.LIST) || (left == TypeKind.STR && right == TypeKind.INT) || (left == TypeKind.INT && right == TypeKind.STR)) {
+            boolean listTimesInt = (left == TypeKind.LIST && right == TypeKind.INT)
+                    || (left == TypeKind.INT && right == TypeKind.LIST);
+            boolean strTimesInt = (left == TypeKind.STR && right == TypeKind.INT)
+                    || (left == TypeKind.INT && right == TypeKind.STR);
+
+            if (listTimesInt || strTimesInt) {
                 return left == TypeKind.INT ? right : left;
             }
         }
@@ -193,8 +158,12 @@ public class TypeInferenceEngine {
         if (left == TypeKind.INT && right == TypeKind.INT) {
             return op.equals("/") ? TypeKind.FLOAT : TypeKind.INT;
         }
-        if ((left == TypeKind.INT || left == TypeKind.FLOAT) && (right == TypeKind.INT || right == TypeKind.FLOAT)) {
-            return op.equals("/") || left == TypeKind.FLOAT || right == TypeKind.FLOAT ? TypeKind.FLOAT : TypeKind.INT;
+
+        boolean bothNumeric = (left == TypeKind.INT || left == TypeKind.FLOAT)
+                && (right == TypeKind.INT || right == TypeKind.FLOAT);
+        if (bothNumeric) {
+            boolean shouldBeFloat = op.equals("/") || left == TypeKind.FLOAT || right == TypeKind.FLOAT;
+            return shouldBeFloat ? TypeKind.FLOAT : TypeKind.INT;
         }
 
         return TypeKind.UNKNOWN;
@@ -233,66 +202,46 @@ public class TypeInferenceEngine {
         return TypeKind.UNKNOWN;
     }
 
-
     private TypeKind inferBuiltinCallType(String funcName) {
-        switch (funcName) {
-            case "len":
-                return TypeKind.INT;
-            case "str":
-                return TypeKind.STR;
-            case "int":
-                return TypeKind.INT;
-            case "float":
-                return TypeKind.FLOAT;
-            case "bool":
-                return TypeKind.BOOL;
-            case "list":
-                return TypeKind.LIST;
-            case "dict":
-                return TypeKind.DICT;
-            case "set":
-                return TypeKind.SET;
-            case "tuple":
-                return TypeKind.TUPLE;
-            case "type":
-                return TypeKind.CLASS;
-            case "print":
-                return TypeKind.NONE;
-            case "range":
-                return TypeKind.LIST;
-            case "enumerate":
-                return TypeKind.LIST;
-            case "zip":
-                return TypeKind.LIST;
-            case "map":
-                return TypeKind.LIST;
-            case "filter":
-                return TypeKind.LIST;
-            case "sorted":
-                return TypeKind.LIST;
-            case "reversed":
-                return TypeKind.LIST;
-            case "sum":
-                return TypeKind.INT;
-            case "min":
-            case "max":
-                return TypeKind.UNKNOWN;
-            default:
-                return TypeKind.UNKNOWN;
-        }
+        return switch (funcName) {
+            case "len", "int", "sum" -> TypeKind.INT;
+            case "str" -> TypeKind.STR;
+            case "float" -> TypeKind.FLOAT;
+            case "bool" -> TypeKind.BOOL;
+            case "list", "range", "enumerate", "zip", "map", "filter", "sorted", "reversed" -> TypeKind.LIST;
+            case "dict" -> TypeKind.DICT;
+            case "set" -> TypeKind.SET;
+            case "tuple" -> TypeKind.TUPLE;
+            case "type" -> TypeKind.CLASS;
+            case "print" -> TypeKind.NONE;
+            case "max", "min" -> TypeKind.UNKNOWN;
+            default -> TypeKind.UNKNOWN;
+        };
     }
 
     private TypeKind inferIndexType(IndexExpr indexExpr) {
         TypeKind containerType = inferType(indexExpr.getBase());
-        if (containerType == TypeKind.LIST) {
-            return TypeKind.UNKNOWN;
-        }
-        if (containerType == TypeKind.DICT) {
-            return TypeKind.UNKNOWN;
-        }
-        if (containerType == TypeKind.STR) {
-            return TypeKind.STR;
-        }
-        return TypeKind.UNKNOWN;
+
+        return switch (containerType) {
+            case LIST, DICT -> TypeKind.UNKNOWN;
+            case STR -> TypeKind.STR;
+            default -> TypeKind.UNKNOWN;
+        };
+    }
+
+    /* -------------------- Operator helpers -------------------- */
+
+    private boolean isArithmeticOperator(String op) {
+        return op.equals("+") || op.equals("-") || op.equals("*")
+                || op.equals("/") || op.equals("//") || op.equals("%");
+    }
+
+    private boolean isBitwiseOperator(String op) {
+        return op.equals("&") || op.equals("|") || op.equals("^")
+                || op.equals("<<") || op.equals(">>");
+    }
+
+    private boolean isBooleanOperator(String op) {
+        return op.equals("and") || op.equals("or");
     }
 }
