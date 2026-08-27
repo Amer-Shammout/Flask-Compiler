@@ -205,7 +205,7 @@ power
 
 // unary +/-
 unary
-    : (PLUS | MINUS) unary                       # UnaryPMExpr
+    : (PLUS | MINUS | TILDE) unary                       # UnaryPMExpr
     | primary                                    # PrimaryExpr
     ;
 
