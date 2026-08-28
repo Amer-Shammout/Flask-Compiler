@@ -18,6 +18,7 @@ import SymbolTable.FlaskSymbolTable;
 import semantic.diagnostics.DiagnosticCollector;
 import semantic.diagnostics.TypeKind;
 import semantic.diagnostics.ErrorCode;
+import semantic.scope.TemplateUndefinedVariableChecker;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -43,11 +44,14 @@ public class TemplateContextBridge {
     private final MissingFlaskVariableChecker missingVariableChecker;
     private boolean bridged;
 
+    private final TemplateUndefinedVariableChecker undefinedChecker;
+
     public TemplateContextBridge(SymbolTableRepository repository, DiagnosticCollector diagnosticCollector) {
         this.repository = repository;
         this.diagnosticCollector = diagnosticCollector;
         this.typeChecker = new BridgeTypeChecker(repository, diagnosticCollector);
-        this.missingVariableChecker = new MissingFlaskVariableChecker(diagnosticCollector);
+        this.missingVariableChecker = new MissingFlaskVariableChecker(diagnosticCollector, repository);
+        this.undefinedChecker = new TemplateUndefinedVariableChecker(repository, diagnosticCollector);
     }
 
     /**
@@ -93,6 +97,8 @@ public class TemplateContextBridge {
 
         // E004 Detection: Check for missing Flask variables (CRITICAL: must run after bridge)
         missingVariableChecker.checkMissingFlaskVariables(resolutionIndex, templateIndex);
+        // E001 Detection: Check for Undefined template variables (CRITICAL: must run after checkMissingFlaskVariables)
+        undefinedChecker.checkUndefinedVariables(resolutionIndex, templateIndex);
 
         bridged = true;
     }
@@ -233,9 +239,12 @@ public class TemplateContextBridge {
         }*/
 
         if (!callsForFile.isEmpty()) {
-            return new CrossContextMatch(reference, CrossContextMatch.MatchKind.MISSING_FROM_RENDER_CONTEXT, templateFileName, null, null);
+            if (existsInFlask(name)) {
+                return new CrossContextMatch(reference, CrossContextMatch.MatchKind.MISSING_FROM_RENDER_CONTEXT, templateFileName, null, null);
+            }
+            // not exist in flask -> template undefined variable
+            return new CrossContextMatch(reference, CrossContextMatch.MatchKind.UNRESOLVED, templateFileName, null, null);
         }
-
         return new CrossContextMatch(reference, CrossContextMatch.MatchKind.UNRESOLVED, templateFileName, null, null);
     }
 
@@ -436,5 +445,10 @@ public class TemplateContextBridge {
     @Override
     public String toString() {
         return String.format("TemplateContextBridge { contexts: %d, bridged: %b, flaskVars: %d, cachedTypes: %d }", contextMap.size(), bridged, flaskContextVariables.size(), contextVariableTypeCache.size());
+    }
+
+    private boolean existsInFlask(String name) {
+        if (repository.getFlaskGlobal() == null) return false;
+        return NameResolver.resolve(repository.getFlaskGlobal(), name).isPresent();
     }
 }

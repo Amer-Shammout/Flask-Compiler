@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html>
+<body>
+
+{#  E004: Missing Flask Variable #}
+{# age معرف في Flask لكنه غير ممرر إلى render_template #}
+{{ age }}
+
+{#  E001: Undefined Variable #}
+{# undefined_var ليس معرفًا في القالب ولا في Flask #}
+{{ undefined_var }}
+
+{{ user_name }}
+
+{% set local_var = "Hello" %}
+{{ local_var }}
+
+{#  E203: Out of scope #}
+{% for item in items %}
+{% set local = "Hello" %}
+{{ item }}
+{% endfor %}
+{{ item }}
+{{ local }}
+
+
+</body>
+</html>

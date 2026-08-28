@@ -1,9 +1,7 @@
 package semantic.bridge;
 
 import AST.SourceRange;
-import SymbolTable.PythonBuiltins;
-import SymbolTable.SymbolReference;
-import SymbolTable.TemplateReferenceIndex;
+import SymbolTable.*;
 import semantic.diagnostics.DiagnosticCollector;
 
 import java.util.List;
@@ -14,9 +12,12 @@ import java.util.List;
 public class MissingFlaskVariableChecker {
 
     private final DiagnosticCollector diagnosticCollector;
+    private final SymbolTableRepository repository;
 
-    public MissingFlaskVariableChecker(DiagnosticCollector diagnosticCollector) {
+    public MissingFlaskVariableChecker(DiagnosticCollector diagnosticCollector,
+                                       SymbolTableRepository repository) {
         this.diagnosticCollector = diagnosticCollector;
+        this.repository = repository;
     }
 
     /**
@@ -42,6 +43,8 @@ public class MissingFlaskVariableChecker {
             String variableName = templateReference.getName();
             if (variableName == null || variableName.isBlank()) continue;
 
+
+
             // If the template defines this name anywhere (e.g., loop variable),
             // then this is not a missing Flask variable — it's a template-local name (possible out-of-scope).
             if (templateIndex != null) {
@@ -54,6 +57,10 @@ public class MissingFlaskVariableChecker {
 
             // Skip builtins (e.g. len, sum)
             if (PythonBuiltins.isBuiltin(variableName)) {
+                continue;
+            }
+
+            if (!existsInFlask(variableName)) {
                 continue;
             }
 
@@ -80,5 +87,12 @@ public class MissingFlaskVariableChecker {
                 variableName, templateFileName, variableName, variableName);
 
         diagnosticCollector.reportMissingFlaskVariable(sourceRange, variableName, suggestion);
+    }
+
+    private boolean existsInFlask(String name) {
+        if (repository == null || repository.getFlaskGlobal() == null) {
+            return false;
+        }
+        return NameResolver.resolve(repository.getFlaskGlobal(), name).isPresent();
     }
 }

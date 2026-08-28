@@ -6,13 +6,16 @@ import AST.template.jinja.expr.*;
 
 import AST.template.jinja.stmt.JinjaBlockStmt;
 import AST.template.jinja.stmt.JinjaForStmt;
+import AST.template.jinja.stmt.JinjaSetStmt;
 import SymbolTable.*;
 import semantic.diagnostics.Diagnostic;
 import semantic.diagnostics.DiagnosticCollector;
 import semantic.diagnostics.ErrorCode;
 import semantic.diagnostics.TypeKind;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -30,6 +33,9 @@ public class TemplateTypeErrorChecker {
 
     private ISymbolTable activeTable;
     private int siblingScopeIndex = 0;
+
+    private final Map<String, TypeKind> localSetTypes = new HashMap<>();
+
 
     public TemplateTypeErrorChecker(SymbolTableRepository repository, DiagnosticCollector diagnostics) {
         this.repository = repository;
@@ -64,6 +70,13 @@ public class TemplateTypeErrorChecker {
 
         if (node instanceof JinjaBlockStmt blockStmt) {
             walkBlockStmt(blockStmt);
+            return;
+        }
+
+        if (node instanceof JinjaSetStmt setStmt) {
+            TypeKind valueType = inferType(setStmt.getValue());
+            localSetTypes.put(setStmt.getName(), valueType);
+            walkNode(setStmt.getValue());
             return;
         }
 
@@ -149,6 +162,9 @@ public class TemplateTypeErrorChecker {
 
     private TypeKind inferIdentifierType(JinjaIdentifierExpr id) {
         String name = id.getName();
+        if (localSetTypes.containsKey(name)) {
+            return localSetTypes.get(name);
+        }
         if (activeTable != null) {
             Optional<ScopeBinding> binding = NameResolver.resolve(activeTable, name);
             if (binding.isPresent() && binding.get().getSymbol() != null) {
