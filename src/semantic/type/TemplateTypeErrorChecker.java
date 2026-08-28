@@ -4,11 +4,9 @@ import AST.SourceRange;
 import AST.template.TemplateNode;
 import AST.template.jinja.expr.*;
 
-import SymbolTable.NameResolver;
-import SymbolTable.ScopeBinding;
-import SymbolTable.Symbol;
-import SymbolTable.SymbolKind;
-import SymbolTable.SymbolTableRepository;
+import AST.template.jinja.stmt.JinjaBlockStmt;
+import AST.template.jinja.stmt.JinjaForStmt;
+import SymbolTable.*;
 import semantic.diagnostics.Diagnostic;
 import semantic.diagnostics.DiagnosticCollector;
 import semantic.diagnostics.ErrorCode;
@@ -30,6 +28,9 @@ public class TemplateTypeErrorChecker {
     private final SymbolTableRepository repository;
     private final DiagnosticCollector diagnostics;
 
+    private ISymbolTable activeTable;
+    private int siblingScopeIndex = 0;
+
     public TemplateTypeErrorChecker(SymbolTableRepository repository, DiagnosticCollector diagnostics) {
         this.repository = repository;
         this.diagnostics = diagnostics;
@@ -40,6 +41,8 @@ public class TemplateTypeErrorChecker {
      */
     public void checkTemplate(TemplateNode root) {
         if (root == null) return;
+        activeTable = repository.getTemplateGlobal();
+        siblingScopeIndex = 0;
         walkNode(root);
     }
 
@@ -54,6 +57,16 @@ public class TemplateTypeErrorChecker {
             return;
         }
 
+        if (node instanceof JinjaForStmt forStmt) {
+            walkForStmt(forStmt);
+            return;
+        }
+
+        if (node instanceof JinjaBlockStmt blockStmt) {
+            walkBlockStmt(blockStmt);
+            return;
+        }
+
         if (node instanceof List<?> list) {
             for (Object child : list) {
                 walkNode(child);
@@ -61,7 +74,7 @@ public class TemplateTypeErrorChecker {
             return;
         }
 
-        // Reflection fallback for other AST nodes
+        // Reflection fallback
         try {
             var getChildren = node.getClass().getMethod("getChildren");
             Object children = getChildren.invoke(node);
@@ -73,6 +86,39 @@ public class TemplateTypeErrorChecker {
         } catch (Exception ignored) {
             // No children method or inaccessible
         }
+    }
+
+    private void walkForStmt(JinjaForStmt forStmt) {
+        ISymbolTable previous = activeTable;
+
+        activeTable = enterSiblingScope();
+        int nextSiblingIndex = siblingScopeIndex;
+        siblingScopeIndex = 0;
+
+        for (var child : forStmt.getChildren()) {
+            walkNode(child);
+        }
+
+        activeTable = previous;
+        siblingScopeIndex = nextSiblingIndex;
+    }
+
+    private void walkBlockStmt(JinjaBlockStmt blockStmt) {
+        ISymbolTable previous = activeTable;
+        int previousSiblingIndex = siblingScopeIndex;
+
+        activeTable = findNamedChildScope("block:" + blockStmt.getName());
+        if (activeTable == null) {
+            activeTable = previous;
+        }
+        siblingScopeIndex = 0;
+
+        for (var child : blockStmt.getChildren()) {
+            walkNode(child);
+        }
+
+        activeTable = previous;
+        siblingScopeIndex = previousSiblingIndex;
     }
 
     /**
@@ -103,13 +149,13 @@ public class TemplateTypeErrorChecker {
 
     private TypeKind inferIdentifierType(JinjaIdentifierExpr id) {
         String name = id.getName();
-        if (repository.getTemplateGlobal() != null) {
-            Optional<ScopeBinding> binding = NameResolver.resolve(repository.getTemplateGlobal(), name);
+        if (activeTable != null) {
+            Optional<ScopeBinding> binding = NameResolver.resolve(activeTable, name);
             if (binding.isPresent() && binding.get().getSymbol() != null) {
                 return binding.get().getSymbol().getInferredType();
             }
         }
-        // Not found locally -> might be from Flask, so UNKNOWN
+         // Not found locally -> might be from Flask, so UNKNOWN
         return TypeKind.UNKNOWN;
     }
 
@@ -332,6 +378,39 @@ public class TemplateTypeErrorChecker {
         }
     }
 
+    private ISymbolTable enterSiblingScope() {
+        if (!(activeTable instanceof AbstractSymbolTable parent)) {
+            return activeTable;
+        }
+
+        while (siblingScopeIndex < parent.getChildren().size()) {
+            ISymbolTable child = parent.getChildren().get(siblingScopeIndex);
+            String scopeName = NameResolver.scopeName(child);
+
+            siblingScopeIndex++;
+
+            if (scopeName != null && scopeName.startsWith("block:")) {
+                continue;
+            }
+
+            return child;
+        }
+
+        return activeTable;
+    }
+
+    private ISymbolTable findNamedChildScope(String scopeName) {
+        if (!(activeTable instanceof AbstractSymbolTable parent)) {
+            return null;
+        }
+        for (ISymbolTable child : parent.getChildren()) {
+            if (scopeName.equals(NameResolver.scopeName(child))) {
+                return child;
+            }
+        }
+        return null;
+    }
+
     private boolean isNumeric(TypeKind type) {
         return type == TypeKind.INT || type == TypeKind.FLOAT;
     }
@@ -356,7 +435,7 @@ public class TemplateTypeErrorChecker {
     private String extractName(JinjaExpr expr) {
         if (expr instanceof JinjaIdentifierExpr id) return id.getName();
         if (expr instanceof JinjaNumberLiteralExpr num) return num.getText();
-        if (expr instanceof JinjaStringLiteralExpr) return "\"string\"";
+        if (expr instanceof JinjaStringLiteralExpr str) return str.getRawText();
         return null;
     }
 }

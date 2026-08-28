@@ -2,9 +2,37 @@
 <html>
 <head>
     <title>Add Product</title>
-    <h1>{{ "test"+1 }}</h1>
+
+    {# E102: Type error - str + int #}
+    <h1>{{ "test" + 1 }}</h1>
+
+    {# E104: Not callable - int() #}
     <h1>{{ 5() }}</h1>
+
+    {# E106: Invalid builtin usage - len(int) #}
     <h1>{{ len(100) }}</h1>
+
+    {# E103: Incompatible types - str > int #}
+    <h1>{{ "test" > 8 }}</h1>
+
+    {# E102: Type error - str * str #}
+    <h1>{{ "test" * "a" }}</h1>
+
+    {# E102: Type error - modulo with str #}
+    <h1>{{ 5 % "a" }}</h1>
+
+
+    {# Valid: str + str #}
+    <h1>{{ "hello" + " world" }}</h1>
+
+    {# Valid: numeric multiplication #}
+    <h1>{{ 5 * 2 }}</h1>
+
+    {# Valid: numeric modulo #}
+    <h1>{{ 7 % 3 }}</h1>
+
+    {# Valid: str comparison #}
+    <h1>{{ "a" < "b" }}</h1>
 
     <style>
         body {
@@ -35,17 +63,14 @@
 
 <body>
 
-
 <h1>Add Product</h1>
 
 <form method="POST" action="/products/create">
 
     <label>Name</label>
-
-    <input  type="text" name="name">
+    <input type="text" name="name">
 
     <label>Price</label>
-
     <input type="text" name="price">
 
     <button type="submit">
@@ -61,9 +86,11 @@
 </p>
 
 <div>
-    {% if "test">8 %}
+    {# E103: Incompatible types - str > int inside if #}
+    {% if "test" > 8 %}
     <p>OK</p>
     {% endif %}
 </div>
+
 </body>
 </html>
