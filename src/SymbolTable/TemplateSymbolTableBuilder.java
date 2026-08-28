@@ -148,14 +148,14 @@ public class TemplateSymbolTableBuilder extends SymbolTableBuilder {
                 activeTable = activeTable.enterScope("for");
                 siblingScopeIndex = 0;
                 for (String variable : forStmt.getVariables()) {
-                    recordDefinition(variable, null, activeTable, SymbolKind.VARIABLE);
+                    recordDefinition(variable, forStmt, activeTable, SymbolKind.VARIABLE);
                 }
                 collectNodes(forStmt.getBody().getBodyChildren());
                 activeTable = previous;
                 siblingScopeIndex = previousSiblingIndex;
             }
             case JinjaBlockStmt blockStmt -> {
-                recordDefinition(blockStmt.getName(), null, activeTable, SymbolKind.BLOCK);
+                recordDefinition(blockStmt.getName(), blockStmt, activeTable, SymbolKind.BLOCK);
                 ISymbolTable previous = activeTable;
                 int previousSiblingIndex = siblingScopeIndex;
                 activeTable = activeTable.enterScope("block:" + blockStmt.getName());
@@ -178,6 +178,9 @@ public class TemplateSymbolTableBuilder extends SymbolTableBuilder {
             case JinjaIncludeStmt includeStmt -> recordTemplateDependency(
                     "include", normalizeTemplateName(includeStmt.getTemplateName()),
                     includeStmt.getSourceRange());
+            case JinjaSetStmt setStmt -> {
+                recordDefinition(setStmt.getName(), setStmt, activeTable, SymbolKind.VARIABLE);
+            }
             default -> {
             }
         }
@@ -289,6 +292,7 @@ public class TemplateSymbolTableBuilder extends SymbolTableBuilder {
                     resolveNodes(ifStmt.getElseBody().getBodyChildren());
                 }
             }
+            case JinjaSetStmt setStmt -> resolveJinjaExpr(setStmt.getValue());
             case JinjaExtendsStmt ignored -> {
             }
             case JinjaIncludeStmt ignored -> {
@@ -348,7 +352,7 @@ public class TemplateSymbolTableBuilder extends SymbolTableBuilder {
 
     private void recordDefinition(
             String name,
-            JinjaIdentifierExpr source,
+            ASTNode source,
             ISymbolTable table,
             SymbolKind kind) {
         if (name == null || name.isBlank()) {
