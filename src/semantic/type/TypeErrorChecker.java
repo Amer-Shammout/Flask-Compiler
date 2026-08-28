@@ -2,20 +2,16 @@ package semantic.type;
 
 import AST.SourceRange;
 import AST.flask.expr.*;
-import AST.flask.literal.*;
+import AST.flask.literal.ListLiteralExpr;
 import AST.flask.stmt.*;
 import AST.flask.suite.BlockSuite;
 import AST.flask.suite.InlineSuite;
 import AST.flask.suite.Suite;
+import SymbolTable.*;
 import semantic.diagnostics.Diagnostic;
 import semantic.diagnostics.DiagnosticCollector;
 import semantic.diagnostics.ErrorCode;
 import semantic.diagnostics.TypeKind;
-import SymbolTable.NameResolver;
-import SymbolTable.ScopeBinding;
-import SymbolTable.Symbol;
-import SymbolTable.SymbolTableRepository;
-import SymbolTable.FlaskSymbolTable;
 
 import java.util.List;
 import java.util.Optional;
@@ -28,6 +24,8 @@ public class TypeErrorChecker {
     private final TypeInferenceEngine typeEngine;
     private final DiagnosticCollector diagnostics;
     private final SymbolTableRepository repository;
+    private ISymbolTable activeTable;
+
 
     public TypeErrorChecker(DiagnosticCollector diagnostics, SymbolTableRepository repository) {
         this.diagnostics = diagnostics;
@@ -39,6 +37,7 @@ public class TypeErrorChecker {
 
     public void checkProgram(AST.Program program) {
         if (program == null) return;
+        activeTable = repository.getFlaskGlobal();
         for (var child : program.getChildren()) {
             if (child instanceof Statement stmt) {
                 checkStatement(stmt);
@@ -48,7 +47,8 @@ public class TypeErrorChecker {
 
     private void checkStatement(Statement stmt) {
         switch (stmt) {
-            case null -> {}
+            case null -> {
+            }
             case DecoratedStmt decoratedStmt -> checkStatement(decoratedStmt.getTarget());
             case AssignmentStmt asgnStmt -> checkAssignment(asgnStmt);
             case AssignmentChainStmt chainStmt -> checkAssignmentChain(chainStmt);
@@ -63,7 +63,8 @@ public class TypeErrorChecker {
                     checkExpression(retStmt.getValue(), retStmt.getSourceRange());
                 }
             }
-            default -> {}
+            default -> {
+            }
         }
     }
 
@@ -113,8 +114,30 @@ public class TypeErrorChecker {
         checkSuite(forStmt.getBody());
     }
 
+    private void checkForIterableType(ForStmt forStmt) {
+        Expression iterable = forStmt.getIterable();
+        SourceRange range = forStmt.getSourceRange();
+
+        if (iterable == null || range == null) return;
+
+        TypeKind iterableType = typeEngine.inferType(iterable);
+
+        if (!isIterableType(iterableType)) {
+            diagnostics.addDiagnostic(new Diagnostic(range, ErrorCode.E107_NOT_ITERABLE,
+                    "TypeError: '" + iterableType.getDisplayName() + "' object is not iterable",
+                    "for loop requires an iterable type (list, dict, tuple, set, or str)"));
+        }
+    }
+
     private void checkFunctionDef(FunctionDefStmt funcStmt) {
         typeEngine.enterScope();
+
+        ISymbolTable previous = activeTable;
+        activeTable = findNamedChildScope("function:" + funcStmt.getName());
+        if (activeTable == null) {
+            activeTable = previous;
+        }
+
         if (funcStmt.getParameters() != null) {
             for (String param : funcStmt.getParameters()) {
                 typeEngine.recordVariableType(param, TypeKind.UNKNOWN);
@@ -122,12 +145,21 @@ public class TypeErrorChecker {
         }
         checkSuite(funcStmt.getBody());
         typeEngine.exitScope();
+        activeTable = previous;
     }
 
     private void checkClassDef(ClassDefStmt classStmt) {
         typeEngine.enterScope();
+
+        ISymbolTable previous = activeTable;
+        activeTable = findNamedChildScope("class:" + classStmt.getName());
+        if (activeTable == null) {
+            activeTable = previous;
+        }
+
         checkSuite(classStmt.getBody());
         typeEngine.exitScope();
+        activeTable = previous;
     }
 
     /* -------------------- Assignments -------------------- */
@@ -141,7 +173,7 @@ public class TypeErrorChecker {
 
         if (target instanceof IdentifierExpr id) {
             typeEngine.recordVariableType(id.getName(), valueType);
-            persistTypeToSymbol(id.getName(), valueType);
+            persistTypeToSymbol(id.getName(), valueType, activeTable);
             recordListElementTypeIfNeeded(id.getName(), value);
         }
     }
@@ -155,7 +187,7 @@ public class TypeErrorChecker {
         for (Expression target : chainStmt.getTargets()) {
             if (target instanceof IdentifierExpr id) {
                 typeEngine.recordVariableType(id.getName(), valueType);
-                persistTypeToSymbol(id.getName(), valueType);
+                persistTypeToSymbol(id.getName(), valueType, activeTable);
                 recordListElementTypeIfNeeded(id.getName(), value);
             }
         }
@@ -172,12 +204,14 @@ public class TypeErrorChecker {
 
     private void checkExpression(Expression expr, SourceRange sr) {
         switch (expr) {
-            case null -> {}
+            case null -> {
+            }
             case BinaryExpr b -> checkBinaryExpression(b);
             case CompareExpr c -> checkComparison(c);
             case CallExpr call -> checkCallExpression(call);
             case UnaryExpr u -> checkUnaryExpression(u);
-            default -> {}
+            default -> {
+            }
         }
 
         for (var child : expr.getChildren()) {
@@ -185,10 +219,6 @@ public class TypeErrorChecker {
                 checkExpression(sub, sub.getSourceRange());
             }
         }
-    }
-
-    private void checkExpression(Expression expr) {
-        checkExpression(expr, expr != null ? expr.getSourceRange() : null);
     }
 
     private void checkBinaryExpression(BinaryExpr bin) {
@@ -205,53 +235,102 @@ public class TypeErrorChecker {
 
     private void checkArithmeticValidity(TypeKind left, TypeKind right, String op, SourceRange range) {
         if (op.equals("+")) {
-            checkAdditionValidity(left, right, op, range);
-        }
-
-        if (op.equals("-") || op.equals("/") || op.equals("//")) {
-            checkSubDivValidity(left, right, op, range);
+            checkAdditionValidity(left, right, range);
+        } else if (op.equals("*")) {
+            checkMultiplicationValidity(left, right, range);
+        } else {
+            // -, /, //, %
+            checkNumericOnlyOperationValidity(left, right, op, range);
         }
     }
 
-    private void checkAdditionValidity(TypeKind left, TypeKind right, String op, SourceRange range) {
-        boolean strAndInt = (left == TypeKind.STR && right == TypeKind.INT)
-                || (left == TypeKind.INT && right == TypeKind.STR);
-        if (strAndInt) {
-            diagnostics.addDiagnostic(new Diagnostic(range, ErrorCode.E102_TYPE_ERROR,
-                    "TypeError: can only concatenate str (not \"int\") to str",
-                    "Use str() to convert int to string"));
+    private void checkAdditionValidity(TypeKind left, TypeKind right, SourceRange range) {
+        // Success: STR+STR, LIST+LIST, INT+INT, FLOAT+FLOAT, INT+FLOAT
+        if ((left == TypeKind.STR && right == TypeKind.STR) ||
+                (left == TypeKind.LIST && right == TypeKind.LIST) ||
+                (left == TypeKind.INT && right == TypeKind.INT) ||
+                (left == TypeKind.FLOAT && right == TypeKind.FLOAT) ||
+                (left == TypeKind.INT && right == TypeKind.FLOAT) ||
+                (left == TypeKind.FLOAT && right == TypeKind.INT) ||
+                (left == TypeKind.UNKNOWN || right == TypeKind.UNKNOWN)) {
             return;
         }
 
-        boolean listAndInt = (left == TypeKind.LIST && right == TypeKind.INT)
-                || (left == TypeKind.INT && right == TypeKind.LIST);
-        if (listAndInt) {
+        //Error: List + Other Type
+        if (left == TypeKind.LIST || right == TypeKind.LIST) {
+            TypeKind other = left == TypeKind.LIST ? right : left;
             diagnostics.addDiagnostic(new Diagnostic(range, ErrorCode.E105_INVALID_LIST_OPERATION,
-                    "TypeError: can only concatenate list (not \"int\") to list",
+                    "TypeError: can only concatenate list (not \"" + other.getDisplayName() + "\") to list",
                     "Use list concatenation with another list or use list.append/extend"));
+            return;
         }
+
+        //Error: String + Other Type
+        if (left == TypeKind.STR || right == TypeKind.STR) {
+            TypeKind other = left == TypeKind.STR ? right : left;
+            diagnostics.addDiagnostic(new Diagnostic(range, ErrorCode.E102_TYPE_ERROR,
+                    "TypeError: can only concatenate str (not \"" + other.getDisplayName() + "\") to str",
+                    "Use str() to convert " + other.getDisplayName() + " to string"));
+            return;
+        }
+
+        // Error: Addition of Incompatible Types
+        diagnostics.addDiagnostic(new Diagnostic(range, ErrorCode.E102_TYPE_ERROR,
+                "TypeError: unsupported operand type(s) for +: '" + left.getDisplayName() + "' and '" + right.getDisplayName() + "'",
+                "Use compatible types for addition"));
     }
 
-    private void checkSubDivValidity(TypeKind left, TypeKind right, String op, SourceRange range) {
-        boolean strAndStr = left == TypeKind.STR && right == TypeKind.STR;
-        boolean strAndInt = (left == TypeKind.STR && right == TypeKind.INT)
-                || (left == TypeKind.INT && right == TypeKind.STR);
-        boolean strAndFloat = (left == TypeKind.STR && right == TypeKind.FLOAT)
-                || (left == TypeKind.FLOAT && right == TypeKind.STR);
-
-        if (strAndStr) {
-            diagnostics.addDiagnostic(new Diagnostic(range, ErrorCode.E102_TYPE_ERROR,
-                    "TypeError: unsupported operand type(s) for " + op + ": 'str' and 'str'",
-                    "This operation only works with numeric types (int, float)"));
-        } else if (strAndInt) {
-            diagnostics.addDiagnostic(new Diagnostic(range, ErrorCode.E102_TYPE_ERROR,
-                    "TypeError: unsupported operand type(s) for " + op + ": 'str' and 'int'",
-                    "This operation only works with numeric types (int, float)"));
-        } else if (strAndFloat) {
-            diagnostics.addDiagnostic(new Diagnostic(range, ErrorCode.E102_TYPE_ERROR,
-                    "TypeError: unsupported operand type(s) for " + op + ": 'str' and 'float'",
-                    "This operation only works with numeric types (int, float)"));
+    private void checkMultiplicationValidity(TypeKind left, TypeKind right, SourceRange range) {
+        // Success: STR*INT, INT*STR, LIST*INT, INT*LIST, INT*INT, FLOAT*FLOAT, INT*FLOAT
+        if ((left == TypeKind.STR && right == TypeKind.INT) ||
+                (left == TypeKind.INT && right == TypeKind.STR) ||
+                (left == TypeKind.LIST && right == TypeKind.INT) ||
+                (left == TypeKind.INT && right == TypeKind.LIST) ||
+                (left == TypeKind.INT && right == TypeKind.INT) ||
+                (left == TypeKind.FLOAT && right == TypeKind.FLOAT) ||
+                (left == TypeKind.INT && right == TypeKind.FLOAT) ||
+                (left == TypeKind.FLOAT && right == TypeKind.INT) ||
+                (left == TypeKind.UNKNOWN || right == TypeKind.UNKNOWN)) {
+            return;
         }
+
+        // Error: List * Not Integer
+        if (left == TypeKind.LIST || right == TypeKind.LIST) {
+            TypeKind other = left == TypeKind.LIST ? right : left;
+            diagnostics.addDiagnostic(new Diagnostic(range, ErrorCode.E105_INVALID_LIST_OPERATION,
+                    "TypeError: can't multiply sequence by non-int of type '" + other.getDisplayName() + "'",
+                    "Use an integer multiplier for list repetition"));
+            return;
+        }
+
+        // Error: String * Not Integer
+        if (left == TypeKind.STR || right == TypeKind.STR) {
+            TypeKind other = left == TypeKind.STR ? right : left;
+            diagnostics.addDiagnostic(new Diagnostic(range, ErrorCode.E102_TYPE_ERROR,
+                    "TypeError: can't multiply sequence by non-int of type '" + other.getDisplayName() + "'",
+                    "Use an integer multiplier for string repetition"));
+            return;
+        }
+
+        // multiplication of non-numeric types
+        diagnostics.addDiagnostic(new Diagnostic(range, ErrorCode.E102_TYPE_ERROR,
+                "TypeError: unsupported operand type(s) for *: '" + left.getDisplayName() + "' and '" + right.getDisplayName() + "'",
+                "Use compatible numeric types for multiplication"));
+    }
+
+    private void checkNumericOnlyOperationValidity(TypeKind left, TypeKind right, String op, SourceRange range) {
+        // Success: INT/INT, FLOAT/FLOAT, INT/FLOAT, FLOAT/INT
+        if ((left == TypeKind.INT || left == TypeKind.FLOAT || left == TypeKind.UNKNOWN) &&
+                (right == TypeKind.INT || right == TypeKind.FLOAT || right == TypeKind.UNKNOWN)) {
+            return;
+        }
+
+        TypeKind bad = left == TypeKind.INT || left == TypeKind.FLOAT ? right : left;
+        TypeKind other = bad == left ? right : left;
+
+        diagnostics.addDiagnostic(new Diagnostic(range, ErrorCode.E102_TYPE_ERROR,
+                "TypeError: unsupported operand type(s) for " + op + ": '" + bad.getDisplayName() + "' and '" + other.getDisplayName() + "'",
+                "This operation only works with numeric types (int, float)"));
     }
 
     private void checkComparison(CompareExpr cmp) {
@@ -270,21 +349,32 @@ public class TypeErrorChecker {
     private void checkComparisonValidity(TypeKind left, TypeKind right, String op, SourceRange range) {
         if (range == null) return;
 
-        boolean strAndInt = (left == TypeKind.STR && right == TypeKind.INT)
-                || (left == TypeKind.INT && right == TypeKind.STR);
-        if (strAndInt) {
-            diagnostics.addDiagnostic(new Diagnostic(range, ErrorCode.E103_INCOMPATIBLE_TYPES,
-                    "TypeError: '" + op + "' not supported between instances of 'str' and 'int'",
-                    "Ensure both operands have compatible types"));
+        // == , !=
+        if (op.equals("==") || op.equals("!=")) {
+            return;
         }
 
-        boolean listAndStr = (left == TypeKind.LIST && right == TypeKind.STR)
-                || (left == TypeKind.STR && right == TypeKind.LIST);
-        if (listAndStr && !op.equals("==") && !op.equals("!=")) {
-            diagnostics.addDiagnostic(new Diagnostic(range, ErrorCode.E103_INCOMPATIBLE_TYPES,
-                    "TypeError: '" + op + "' not supported between instances of 'list' and 'str'",
-                    "Only == and != work with mixed container and string types"));
+        // >, >= , <, <=
+        boolean bothNumeric = isNumeric(left) && isNumeric(right);
+        boolean sameContainerType = (left == right) &&
+                (left == TypeKind.LIST || left == TypeKind.STR || left == TypeKind.TUPLE);
+
+
+        if (bothNumeric || sameContainerType) {
+            return;
         }
+
+
+        if (left == TypeKind.UNKNOWN || right == TypeKind.UNKNOWN ||
+                left == TypeKind.ANY || right == TypeKind.ANY) {
+            return;
+        }
+
+        // Else
+        diagnostics.addDiagnostic(new Diagnostic(range, ErrorCode.E103_INCOMPATIBLE_TYPES,
+                "TypeError: '" + op + "' not supported between instances of '" +
+                        left.getDisplayName() + "' and '" + right.getDisplayName() + "'",
+                "Ensure both operands have compatible types"));
     }
 
     private void checkCallExpression(CallExpr call) {
@@ -327,14 +417,15 @@ public class TypeErrorChecker {
         List<Argument> args = call.getArguments();
         if (args.isEmpty()) return;
 
-        Argument firstArg = args.get(0);
+        Argument firstArg = args.getFirst();
         if (!(firstArg instanceof PositionalArgument pos)) return;
 
         switch (funcName) {
             case "len" -> checkLenArgument(pos, range);
             case "abs" -> checkAbsArgument(pos, range);
             case "sum" -> checkSumArgument(pos, range);
-            default -> {}
+            default -> {
+            }
         }
     }
 
@@ -416,20 +507,7 @@ public class TypeErrorChecker {
         }
     }
 
-    private void checkForIterableType(ForStmt forStmt) {
-        Expression iterable = forStmt.getIterable();
-        SourceRange range = forStmt.getSourceRange();
 
-        if (iterable == null || range == null) return;
-
-        TypeKind iterableType = typeEngine.inferType(iterable);
-
-        if (!isIterableType(iterableType)) {
-            diagnostics.addDiagnostic(new Diagnostic(range, ErrorCode.E107_NOT_ITERABLE,
-                    "TypeError: '" + iterableType.getDisplayName() + "' object is not iterable",
-                    "for loop requires an iterable type (list, dict, tuple, set, or str)"));
-        }
-    }
 
     /* -------------------- Helpers -------------------- */
 
@@ -474,26 +552,31 @@ public class TypeErrorChecker {
         return TypeKind.UNKNOWN;
     }
 
-    private void persistTypeToSymbol(String varName, TypeKind type) {
+    private void persistTypeToSymbol(String varName, TypeKind type, ISymbolTable currentScope) {
         if (repository == null || varName == null) return;
 
-        if (repository.getFlaskGlobal() instanceof FlaskSymbolTable flaskRoot) {
-            Optional<Symbol> deep = flaskRoot.findDeepest(varName);
-            if (deep.isPresent()) {
-                Symbol symbol = deep.get();
-                if (symbol != null) {
-                    symbol.setInferredType(type);
-                    return;
-                }
-            }
-        }
-
-        Optional<ScopeBinding> binding = NameResolver.resolve(repository.getFlaskGlobal(), varName);
+        Optional<ScopeBinding> binding = NameResolver.resolve(currentScope, varName);
         if (binding.isPresent()) {
-            Symbol symbol = binding.get().getSymbol();
-            if (symbol != null) {
-                symbol.setInferredType(type);
+            Symbol sym = binding.get().getSymbol();
+            if (sym != null) {
+                sym.setInferredType(type);
             }
         }
+    }
+
+    private ISymbolTable findNamedChildScope(String scopeName) {
+        if (!(activeTable instanceof AbstractSymbolTable parent)) {
+            return null;
+        }
+        for (ISymbolTable child : parent.getChildren()) {
+            if (scopeName.equals(NameResolver.scopeName(child))) {
+                return child;
+            }
+        }
+        return null;
+    }
+
+    private boolean isNumeric(TypeKind type) {
+        return type == TypeKind.INT || type == TypeKind.FLOAT || type == TypeKind.UNKNOWN;
     }
 }
