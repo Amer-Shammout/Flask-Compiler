@@ -422,10 +422,21 @@ public class TemplateSymbolTableBuilder extends SymbolTableBuilder {
         if (!(activeTable instanceof AbstractSymbolTable parent)) {
             return activeTable;
         }
-        if (siblingScopeIndex >= parent.children.size()) {
-            return activeTable;
+
+        while (siblingScopeIndex < parent.children.size()) {
+            ISymbolTable child = parent.children.get(siblingScopeIndex);
+            String scopeName = NameResolver.scopeName(child);
+
+            siblingScopeIndex++;
+
+            if (scopeName != null && scopeName.startsWith("block:")) {
+                continue;
+            }
+
+            return child;
         }
-        return parent.children.get(siblingScopeIndex++);
+
+        return activeTable;
     }
 
     private ISymbolTable findNamedChildScope(String scopeName) {
