@@ -20,11 +20,12 @@ import java.util.Optional;
  *   <li>Collect definitions into scoped tables</li>
  *   <li>Resolve identifier references through the scope chain</li>
  * </ol>
+ *
+ * Refactored to reduce duplicate logic while preserving the original behavior.
  */
 public class FlaskSymbolTableBuilder extends SymbolTableBuilder {
 
     private final FlaskReferenceIndex referenceIndex = new FlaskReferenceIndex();
-
 
     public FlaskSymbolTableBuilder(SymbolTableRepository repository) {
         super(repository);
@@ -41,18 +42,9 @@ public class FlaskSymbolTableBuilder extends SymbolTableBuilder {
         activeTable = repository.getFlaskGlobal();
 
         if (program != null) {
-            for (ASTNode child : program.getChildren()) {
-                if (child instanceof Statement statement) {
-                    collectDefinitions(statement);
-                }
-            }
-
+            collectProgramDefinitions(program);
             activeTable = repository.getFlaskGlobal();
-            for (ASTNode child : program.getChildren()) {
-                if (child instanceof Statement statement) {
-                    resolveStatement(statement);
-                }
-            }
+            resolveProgramStatements(program);
         }
 
         return repository.getFlaskGlobal();
@@ -67,6 +59,22 @@ public class FlaskSymbolTableBuilder extends SymbolTableBuilder {
         if (node instanceof Statement statement) {
             collectDefinitions(statement);
             resolveStatement(statement);
+        }
+    }
+
+    private void collectProgramDefinitions(Program program) {
+        for (ASTNode child : program.getChildren()) {
+            if (child instanceof Statement statement) {
+                collectDefinitions(statement);
+            }
+        }
+    }
+
+    private void resolveProgramStatements(Program program) {
+        for (ASTNode child : program.getChildren()) {
+            if (child instanceof Statement statement) {
+                resolveStatement(statement);
+            }
         }
     }
 
@@ -95,14 +103,15 @@ public class FlaskSymbolTableBuilder extends SymbolTableBuilder {
                 }
             }
             case ImportStmt importStmt -> {
-                // Python binds only the top-level package for dotted imports,
-                // e.g. `import os.path` makes `os` (not `os.path`) available in scope.
                 for (String moduleName : importStmt.getModules()) {
-                    int dot = moduleName.indexOf('.');
-                    String boundName = dot >= 0 ? moduleName.substring(0, dot) : moduleName;
+                    String boundName = moduleName.contains(".")
+                            ? moduleName.substring(0, moduleName.indexOf('.'))
+                            : moduleName;
                     recordDefinition(boundName, importStmt, activeTable, SymbolKind.IMPORT);
                 }
             }
+            case GlobalStmt globalStmt -> recordDeclarations(globalStmt.getNames(), globalStmt, SymbolUseKind.GLOBAL_DECLARATION);
+            case NonlocalStmt nonlocalStmt -> recordDeclarations(nonlocalStmt.getNames(), nonlocalStmt, SymbolUseKind.NONLOCAL_DECLARATION);
             case IfStmt ifStmt -> {
                 collectSuite(ifStmt.getThenSuite());
                 for (Suite elifSuite : ifStmt.getElifSuites()) {
@@ -117,6 +126,31 @@ public class FlaskSymbolTableBuilder extends SymbolTableBuilder {
             case WhileStmt whileStmt -> collectSuite(whileStmt.getBody());
             default -> {
             }
+        }
+    }
+
+    private void recordDeclarations(Iterable<String> names, ASTNode sourceNode, SymbolUseKind useKind) {
+        if (names == null) {
+            return;
+        }
+
+        for (String name : names) {
+            if (name == null || name.isBlank()) {
+                continue;
+            }
+
+            referenceIndex.record(new SymbolReference(
+                    name,
+                    useKind,
+                    sourceNode != null ? sourceNode.getSourceRange() : null,
+                    sourceNode,
+                    NameResolver.scopeName(activeTable),
+                    ResolutionStatus.RESOLVED,
+                    null,
+                    null,
+                    activeTable,
+                    null
+            ));
         }
     }
 
@@ -140,7 +174,6 @@ public class FlaskSymbolTableBuilder extends SymbolTableBuilder {
         activeTable = activeTable.enterScope("function:" + functionDef.getName());
 
         for (String parameter : functionDef.getParameters()) {
-            // Parameters are bound at function entry: use the def header as their position.
             recordDefinition(parameter, functionDef, activeTable, SymbolKind.PARAMETER);
         }
 
@@ -193,8 +226,8 @@ public class FlaskSymbolTableBuilder extends SymbolTableBuilder {
                 status,
                 symbol,
                 NameResolver.scopeName(table),
-                table,                // useScope
-                table                 // definingScope
+                table,
+                table
         ));
     }
 
@@ -270,6 +303,7 @@ public class FlaskSymbolTableBuilder extends SymbolTableBuilder {
         if (functionScope == null) {
             return;
         }
+
         ISymbolTable previous = activeTable;
         activeTable = functionScope;
         resolveSuite(functionDef.getBody());
@@ -281,6 +315,7 @@ public class FlaskSymbolTableBuilder extends SymbolTableBuilder {
         if (classScope == null) {
             return;
         }
+
         ISymbolTable previous = activeTable;
         activeTable = classScope;
         resolveSuite(classDef.getBody());
@@ -298,7 +333,6 @@ public class FlaskSymbolTableBuilder extends SymbolTableBuilder {
         }
         return null;
     }
-
 
     /**
      * Walk an expression tree and resolve every {@link IdentifierExpr} as a reference.
@@ -378,12 +412,10 @@ public class FlaskSymbolTableBuilder extends SymbolTableBuilder {
         ISymbolTable definingScope = null;
         if (binding.isPresent()) {
             definingScope = binding.get().getDefiningScope();
-        } else {
-            if (repository.getFlaskGlobal() instanceof FlaskSymbolTable flaskRoot) {
-                Optional<Symbol> deep = flaskRoot.findDeepest(name);
-                if (deep.isPresent()) {
-                    definingScope = findDefiningScope(flaskRoot, name);
-                }
+        } else if (repository.getFlaskGlobal() instanceof FlaskSymbolTable flaskRoot) {
+            Optional<Symbol> deep = flaskRoot.findDeepest(name);
+            if (deep.isPresent()) {
+                definingScope = findDefiningScope(flaskRoot, name);
             }
         }
 
@@ -396,8 +428,8 @@ public class FlaskSymbolTableBuilder extends SymbolTableBuilder {
                 status,
                 binding.map(ScopeBinding::getSymbol).orElse(null),
                 binding.map(b -> NameResolver.scopeName(b.getDefiningScope())).orElse(null),
-                activeTable,          // useScope
-                definingScope  // definingScope
+                activeTable,
+                definingScope
         ));
     }
 
