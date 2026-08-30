@@ -1,7 +1,7 @@
 package semantic.bridge;
 
 import AST.ASTNode;
-import AST.Program;
+import AST.flask.Program;
 import AST.flask.expr.Argument;
 import AST.flask.expr.AttributeExpr;
 import AST.flask.expr.CallExpr;

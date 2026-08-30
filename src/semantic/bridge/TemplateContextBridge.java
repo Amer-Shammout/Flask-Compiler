@@ -2,7 +2,7 @@ package semantic.bridge;
 
 
 import AST.ASTNode;
-import AST.Program;
+import AST.flask.Program;
 import AST.SourceRange;
 import AST.template.TemplateNode;
 import SymbolTable.FlaskReferenceIndex;

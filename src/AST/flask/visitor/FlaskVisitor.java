@@ -1,7 +1,7 @@
 package AST.flask.visitor;
 
 import AST.ASTNode;
-import AST.Program;
+import AST.flask.Program;
 import AST.SourcePosition;
 import AST.SourceRange;
 import AST.flask.expr.*;

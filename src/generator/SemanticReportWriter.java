@@ -1,7 +1,7 @@
 package generator;
 
 import AST.ASTNode;
-import AST.Program;
+import AST.flask.Program;
 import AST.template.TemplateNode;
 import SymbolTable.FlaskSymbolTable;
 import SymbolTable.FlaskSymbolTableBuilder;

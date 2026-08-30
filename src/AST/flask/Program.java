@@ -1,5 +1,7 @@
-package AST;
+package AST.flask;
 
+import AST.ASTNode;
+import AST.SourceRange;
 import AST.flask.stmt.Statement;
 
 import java.util.ArrayList;
@@ -12,6 +14,10 @@ public class Program extends ASTNode {
     public Program(List<Statement> statements, SourceRange sourceRange) {
         super("Program", sourceRange);
         this.statements = statements;
+    }
+
+    public List<Statement> getStatements() {
+        return statements;
     }
 
     @Override

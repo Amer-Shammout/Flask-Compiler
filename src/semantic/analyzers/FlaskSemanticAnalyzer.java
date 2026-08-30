@@ -1,6 +1,6 @@
 package semantic.analyzers;
 
-import AST.Program;
+import AST.flask.Program;
 import SymbolTable.FlaskSymbolTableBuilder;
 import SymbolTable.SymbolTableRepository;
 import semantic.diagnostics.Diagnostic;
