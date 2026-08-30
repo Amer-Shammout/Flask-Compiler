@@ -1,7 +1,7 @@
 package generator;
 
 import AST.ASTNode;
-import AST.Program;
+import AST.flask.Program;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 import generator.context.ContextData;

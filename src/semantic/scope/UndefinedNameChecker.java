@@ -1,6 +1,6 @@
 package semantic.scope;
 
-import AST.Program;
+import AST.flask.Program;
 import AST.SourceRange;
 import AST.flask.expr.*;
 import AST.flask.stmt.*;

@@ -1,7 +1,7 @@
 package SymbolTable;
 
 import AST.ASTNode;
-import AST.Program;
+import AST.flask.Program;
 import AST.flask.expr.*;
 import AST.flask.literal.ListLiteralExpr;
 import AST.flask.literal.LiteralExpr;

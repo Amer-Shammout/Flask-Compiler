@@ -1,6 +1,7 @@
 package semantic.type;
 
 import AST.SourceRange;
+import AST.flask.Program;
 import AST.flask.expr.*;
 import AST.flask.literal.ListLiteralExpr;
 import AST.flask.stmt.*;
@@ -35,7 +36,7 @@ public class TypeErrorChecker {
 
     /* -------------------- Program / Statement entry points -------------------- */
 
-    public void checkProgram(AST.Program program) {
+    public void checkProgram(Program program) {
         if (program == null) return;
         activeTable = repository.getFlaskGlobal();
         for (var child : program.getChildren()) {

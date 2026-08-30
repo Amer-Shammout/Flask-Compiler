@@ -1,6 +1,6 @@
 package SymbolTable;
 
-import AST.Program;
+import AST.flask.Program;
 import AST.ASTNode;
 
 /**
