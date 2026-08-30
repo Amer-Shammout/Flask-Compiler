@@ -157,6 +157,15 @@ public class FlaskVisitor extends FlaskParserBaseVisitor<ASTNode> {
     }
 
     @Override
+    public ASTNode visitNonlocal_stmt(FlaskParser.Nonlocal_stmtContext ctx) {
+
+        List<String> names =
+                ctx.IDENTIFIER().stream().map(t -> t.getText()).toList();
+
+        return new NonlocalStmt(names, range(ctx));
+    }
+
+    @Override
     public ASTNode visitFromImport(FlaskParser.FromImportContext ctx) {
 
         String module = ctx.dotted_name().getText();

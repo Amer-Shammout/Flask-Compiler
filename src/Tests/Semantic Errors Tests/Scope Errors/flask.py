@@ -3,6 +3,23 @@ from flask import Flask
 app = Flask(__name__)
 
 
+x = 10
+
+def f():
+    for i in range(3):
+        print(x)  #  E202
+        x = 5
+
+def g():
+    print(x)
+
+
+# y = 9
+def outer():
+    #y = 10
+    def inner():
+        nonlocal y #E203
+        y = 55
 # ======================
 # E202 Examples
 # ======================

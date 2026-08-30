@@ -5,5 +5,7 @@ package SymbolTable;
  */
 public enum SymbolUseKind {
     DEFINITION,
-    REFERENCE
+    REFERENCE,
+    GLOBAL_DECLARATION,
+    NONLOCAL_DECLARATION
 }
