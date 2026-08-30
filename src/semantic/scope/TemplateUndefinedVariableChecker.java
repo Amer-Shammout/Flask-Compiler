@@ -2,11 +2,9 @@ package semantic.scope;
 
 import AST.SourceRange;
 import SymbolTable.*;
-import semantic.bridge.CrossContextResolutionIndex;
 import semantic.bridge.CrossContextMatch;
+import semantic.bridge.CrossContextResolutionIndex;
 import semantic.diagnostics.DiagnosticCollector;
-import semantic.diagnostics.ErrorCode;
-import semantic.diagnostics.Diagnostic;
 
 public class TemplateUndefinedVariableChecker {
 

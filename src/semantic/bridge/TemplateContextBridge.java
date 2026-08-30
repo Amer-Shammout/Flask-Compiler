@@ -183,12 +183,7 @@ public class TemplateContextBridge {
         return FlaskContextExtractor.isRenderTemplateCall(call);
     }
 
-    /**
-     * Convenience overload.
-     */
-    public void bridge(Program program, TemplateNode templateRoot) {
-        bridge(program, templateRoot, null, null);
-    }
+
 
     private void bridgeTemplateReferences(String templateFileName, TemplateReferenceIndex templateIndex, Set<String> renderContextKeys, List<RenderTemplateCall> callsForFile) {
 
@@ -221,22 +216,6 @@ public class TemplateContextBridge {
             SourceRange callSite = findCallSiteProviding(callsForFile, name);
             return new CrossContextMatch(reference, CrossContextMatch.MatchKind.FLASK_RENDER_CONTEXT, templateFileName, name, callSite);
         }
-
-        // If the template defines this name anywhere (e.g., a for-loop variable),
-        // but the reference here couldn't resolve (likely a scope misuse — variable used outside its block),
-        // emit E203 and classify as UNRESOLVED (scope error).
-        /*if (templateIndex != null) {
-            boolean definedInTemplate = templateIndex.getDefinitions().stream().anyMatch(def -> name.equals(def.getName()));
-            if (definedInTemplate) {
-                // Emit scope error diagnostic E203 (Out of scope)
-                SourceRange src = reference.getLocation();
-                String message = String.format("Variable '%s' referenced outside its defining scope", name);
-                String suggestion = "Move usage inside the block where it is defined (e.g., inside the for-loop) or define it in an outer scope.";
-                diagnosticCollector.reportScopeError(src, name, ErrorCode.E203_OUT_OF_SCOPE, message, suggestion);
-
-                return new CrossContextMatch(reference, CrossContextMatch.MatchKind.UNRESOLVED, templateFileName, null, null);
-            }
-        }*/
 
         if (!callsForFile.isEmpty()) {
             if (existsInFlask(name)) {
@@ -339,16 +318,7 @@ public class TemplateContextBridge {
         return TypeKind.UNKNOWN;
     }
 
-    public Optional<TemplateContext> resolveTemplateSymbol(String templateSymbolName) {
-        if (contextMap.containsKey(templateSymbolName)) {
-            return Optional.of(contextMap.get(templateSymbolName));
-        }
-        return Optional.empty();
-    }
 
-    public Optional<TemplateContext> resolveTemplateSymbol(Symbol templateSymbol) {
-        return resolveTemplateSymbol(templateSymbol.getName());
-    }
 
     public Optional<Symbol> lookupFlaskSymbol(String templateSymbolName) {
         if (repository.getFlaskGlobal() == null) {
@@ -358,37 +328,11 @@ public class TemplateContextBridge {
         return binding.map(ScopeBinding::getSymbol);
     }
 
-    public void registerContext(String templateSymbolName, TemplateContext context) {
-        contextMap.put(templateSymbolName, context);
-    }
 
     public Map<String, TemplateContext> getAllContexts() {
         return Map.copyOf(contextMap);
     }
 
-    public List<TemplateContext> getContextsByOrigin(TemplateContext.SymbolOrigin origin) {
-        List<TemplateContext> result = new ArrayList<>();
-        for (TemplateContext ctx : contextMap.values()) {
-            if (ctx.getOrigin() == origin) {
-                result.add(ctx);
-            }
-        }
-        return result;
-    }
-
-    public List<TemplateContext> getFlaskLinkedContexts() {
-        List<TemplateContext> result = new ArrayList<>();
-        for (TemplateContext ctx : contextMap.values()) {
-            if (ctx.isLinkedToFlask()) {
-                result.add(ctx);
-            }
-        }
-        return result;
-    }
-
-    public void registerFlaskContextVariables(java.util.Collection<String> variableNames) {
-        flaskContextVariables.addAll(variableNames);
-    }
 
     public boolean isFlaskContextVariable(String name) {
         return flaskContextVariables.contains(name);
@@ -414,25 +358,7 @@ public class TemplateContextBridge {
         return resolutionIndex.formatReport();
     }
 
-    public void generateUndefinedSymbolDiagnostic(String templateSymbolName, AST.SourceRange sourceRange, List<String> suggestions) {
-        String suggestion = null;
-        if (suggestions != null && !suggestions.isEmpty()) {
-            suggestion = "Did you mean " + suggestions.get(0) + "?";
-        }
-        diagnosticCollector.reportUndefinedVariable(sourceRange, templateSymbolName, suggestion);
-    }
 
-    public void generateShadowingDiagnostic(String templateSymbolName, String flaskSymbolName, AST.SourceRange sourceRange) {
-        diagnosticCollector.reportShadowing(sourceRange, templateSymbolName, flaskSymbolName, "Flask context");
-    }
-
-    public void generateTypeMismatchDiagnostic(String templateSymbolName, TypeKind expectedType, TypeKind usageType, AST.SourceRange sourceRange) {
-        diagnosticCollector.reportTypeMismatch(sourceRange, templateSymbolName, expectedType, usageType, "Ensure the template usage matches the Flask variable type.");
-    }
-
-    public void generateTypeErrorDiagnostic(String operation, TypeKind leftType, TypeKind rightType, AST.SourceRange sourceRange, String suggestion) {
-        diagnosticCollector.reportTypeError(sourceRange, operation + " between " + leftType.getDisplayName() + " and " + rightType.getDisplayName(), suggestion);
-    }
 
     public void clear() {
         contextMap.clear();
