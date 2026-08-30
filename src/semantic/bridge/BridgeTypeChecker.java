@@ -4,11 +4,13 @@ import AST.SourceRange;
 import AST.template.TemplateNode;
 import AST.template.jinja.expr.*;
 import AST.template.jinja.stmt.JinjaForStmt;
-import SymbolTable.SymbolTableRepository;
-import semantic.diagnostics.DiagnosticCollector;
 import semantic.diagnostics.Diagnostic;
+import semantic.diagnostics.DiagnosticCollector;
 import semantic.diagnostics.ErrorCode;
 import semantic.diagnostics.TypeKind;
+import SymbolTable.SymbolTableRepository;
+
+import java.util.List;
 
 /**
  * Cross-context type checker for Template expressions against Flask variable types.
@@ -26,6 +28,8 @@ import semantic.diagnostics.TypeKind;
  * - Checker infers: left=STR (from Flask), right=INT (literal 1)
  * - Operation +: STR + INT = E102 TYPE ERROR
  */
+
+
 public class BridgeTypeChecker {
 
     private final SymbolTableRepository repository;
@@ -44,67 +48,58 @@ public class BridgeTypeChecker {
         walkTemplateNode(templateRoot, bridge);
     }
 
-    /**
-     * Recursive walk of template AST.
-     */
     private void walkTemplateNode(Object node, TemplateContextBridge bridge) {
         if (node == null) return;
 
-        // Binary expressions: CRITICAL - this catches test+1
         if (node instanceof JinjaBinaryExpr binaryExpr) {
             checkBinaryExpression(binaryExpr, bridge);
-            for (var child : binaryExpr.getChildren()) {
-                walkTemplateNode(child, bridge);
-            }
+            walkChildren(binaryExpr.getChildren(), bridge);
             return;
         }
 
-        // Function calls
         if (node instanceof JinjaCallExpr callExpr) {
             checkCallExpression(callExpr, bridge);
-            for (var child : callExpr.getChildren()) {
-                walkTemplateNode(child, bridge);
-            }
+            walkChildren(callExpr.getChildren(), bridge);
             return;
         }
 
-        // For loops
         if (node instanceof JinjaForStmt forStmt) {
             checkForStatement(forStmt, bridge);
-            for (var child : forStmt.getChildren()) {
-                walkTemplateNode(child, bridge);
-            }
+            walkChildren(forStmt.getChildren(), bridge);
             return;
         }
 
-        // Generic Jinja expressions
         if (node instanceof JinjaExpr expr) {
-            for (var child : expr.getChildren()) {
-                walkTemplateNode(child, bridge);
-            }
+            walkChildren(expr.getChildren(), bridge);
             return;
         }
 
-        // Lists
-        if (node instanceof java.util.List<?> list) {
-            for (Object o : list) walkTemplateNode(o, bridge);
+        if (node instanceof List<?> list) {
+            for (Object child : list) {
+                walkTemplateNode(child, bridge);
+            }
             return;
         }
 
         // Reflection fallback
         try {
-            var m = node.getClass().getMethod("getChildren");
-            Object children = m.invoke(node);
-            if (children instanceof java.util.List<?> childList) {
-                for (Object c : childList) walkTemplateNode(c, bridge);
+            var getChildren = node.getClass().getMethod("getChildren");
+            Object children = getChildren.invoke(node);
+            if (children instanceof List<?> childList) {
+                walkChildren(childList, bridge);
             }
         } catch (Exception ignored) {
+            // Ignore nodes without getChildren
         }
     }
 
-    /**
-     * CRITICAL: Check binary expressions like test+1
-     */
+    private void walkChildren(List<?> children, TemplateContextBridge bridge) {
+        if (children == null) return;
+        for (Object child : children) {
+            walkTemplateNode(child, bridge);
+        }
+    }
+
     private void checkBinaryExpression(JinjaBinaryExpr binaryExpr, TemplateContextBridge bridge) {
         TypeKind leftType = inferType(binaryExpr.getLeft(), bridge);
         TypeKind rightType = inferType(binaryExpr.getRight(), bridge);
@@ -113,40 +108,102 @@ public class BridgeTypeChecker {
 
         if (range == null) return;
 
-        // Log for debugging
-        String leftExprStr = binaryExpr.getLeft() instanceof JinjaIdentifierExpr id ? id.getName() : "?";
-        String rightExprStr = binaryExpr.getRight() instanceof JinjaNumberLiteralExpr num ? num.getText() : "?";
-
-        // E102: Type error in addition
         if (op.equals("+")) {
-            if ((leftType == TypeKind.STR && rightType == TypeKind.INT) || (leftType == TypeKind.INT && rightType == TypeKind.STR)) {
-                diagnosticCollector.addDiagnostic(new Diagnostic(range, ErrorCode.E102_TYPE_ERROR, "TypeError: can only concatenate str (not \"int\") to str", "Use str() to convert int to string"));
-                return;
-            }
-            if ((leftType == TypeKind.LIST && rightType == TypeKind.INT) || (leftType == TypeKind.INT && rightType == TypeKind.LIST)) {
-                diagnosticCollector.addDiagnostic(new Diagnostic(range, ErrorCode.E105_INVALID_LIST_OPERATION, "TypeError: can only concatenate list (not \"int\") to list", "Use list concatenation with another list"));
-                return;
-            }
-        }
-
-        if (op.equals("-") || op.equals("/") || op.equals("//")) {
-            if ((leftType == TypeKind.STR && rightType == TypeKind.STR) || (leftType == TypeKind.STR && (rightType == TypeKind.INT || rightType == TypeKind.FLOAT)) || (rightType == TypeKind.STR && (leftType == TypeKind.INT || leftType == TypeKind.FLOAT))) {
-                diagnosticCollector.addDiagnostic(new Diagnostic(range, ErrorCode.E102_TYPE_ERROR, "TypeError: unsupported operand type(s) for " + op + ": '" + leftType.getDisplayName() + "' and '" + rightType.getDisplayName() + "'", "This operation only works with numeric types (int, float)"));
-                return;
-            }
-        }
-
-        // E103: Incompatible types in comparisons
-        if (op.equals(">") || op.equals("<") || op.equals(">=") || op.equals("<=") || op.equals("==") || op.equals("!=")) {
-            if ((leftType != TypeKind.INT && rightType != TypeKind.FLOAT) || (rightType != TypeKind.INT && leftType != TypeKind.FLOAT) || (leftType != rightType)) {
-                diagnosticCollector.addDiagnostic(new Diagnostic(range, ErrorCode.E103_INCOMPATIBLE_TYPES, "TypeError: '" + op + "' not supported between instances of '" + leftType.getDisplayName() + "' and '" + rightType.getDisplayName() + "'", "Ensure both operands have compatible types"));
-            }
+            checkAddition(leftType, rightType, range);
+        } else if (op.equals("*")) {
+            checkMultiplication(leftType, rightType, range);
+        } else if (op.equals("%")) {
+            checkModulo(leftType, rightType, range);
+        } else if (op.equals("-") || op.equals("/") || op.equals("//")) {
+            checkSubtractDivide(leftType, rightType, op, range);
+        } else if (op.equals(">") || op.equals("<") || op.equals(">=") ||
+                op.equals("<=") || op.equals("==") || op.equals("!=")) {
+            checkComparison(leftType, rightType, op, range);
         }
     }
 
-    /**
-     * Check function calls.
-     */
+
+    private void checkAddition(TypeKind leftType, TypeKind rightType, SourceRange range) {
+        boolean strAndInt = (leftType == TypeKind.STR && rightType == TypeKind.INT)
+                || (leftType == TypeKind.INT && rightType == TypeKind.STR);
+        if (strAndInt) {
+            diagnosticCollector.addDiagnostic(new Diagnostic(range, ErrorCode.E102_TYPE_ERROR,
+                    "TypeError: can only concatenate str (not \"int\") to str",
+                    "Use str() to convert int to string"));
+            return;
+        }
+
+        boolean listAndInt = (leftType == TypeKind.LIST && rightType == TypeKind.INT)
+                || (leftType == TypeKind.INT && rightType == TypeKind.LIST);
+        if (listAndInt) {
+            diagnosticCollector.addDiagnostic(new Diagnostic(range, ErrorCode.E105_INVALID_LIST_OPERATION,
+                    "TypeError: can only concatenate list (not \"int\") to list",
+                    "Use list concatenation with another list"));
+        }
+    }
+
+    private void checkMultiplication(TypeKind leftType, TypeKind rightType, SourceRange range) {
+        boolean bothNumeric = isNumeric(leftType) && isNumeric(rightType);
+        if (bothNumeric) {
+            return;
+        }
+        if (leftType == TypeKind.UNKNOWN || rightType == TypeKind.UNKNOWN) {
+            return;
+        }
+
+        diagnosticCollector.addDiagnostic(new Diagnostic(range, ErrorCode.E102_TYPE_ERROR,
+                "TypeError: unsupported operand type(s) for *: '"
+                        + leftType.getDisplayName() + "' and '" + rightType.getDisplayName() + "'",
+                "This operation only works with numeric types (int, float)"));
+    }
+
+    private void checkSubtractDivide(TypeKind leftType, TypeKind rightType, String op, SourceRange range) {
+        boolean invalidStrOperation =
+                (leftType == TypeKind.STR && rightType == TypeKind.STR)
+                        || (leftType == TypeKind.STR && (rightType == TypeKind.INT || rightType == TypeKind.FLOAT))
+                        || (rightType == TypeKind.STR && (leftType == TypeKind.INT || leftType == TypeKind.FLOAT));
+
+        if (invalidStrOperation) {
+            diagnosticCollector.addDiagnostic(new Diagnostic(range, ErrorCode.E102_TYPE_ERROR,
+                    "TypeError: unsupported operand type(s) for " + op + ": '"
+                            + leftType.getDisplayName() + "' and '" + rightType.getDisplayName() + "'",
+                    "This operation only works with numeric types (int, float)"));
+        }
+    }
+
+    private void checkComparison(TypeKind leftType, TypeKind rightType, String op, SourceRange range) {
+        boolean bothNumeric = isNumeric(leftType) && isNumeric(rightType);
+        boolean bothStrings = leftType == TypeKind.STR && rightType == TypeKind.STR;
+
+        if (bothNumeric || bothStrings) {
+            return;
+        }
+
+        if (leftType == TypeKind.UNKNOWN || rightType == TypeKind.UNKNOWN) {
+            return;
+        }
+
+        diagnosticCollector.addDiagnostic(new Diagnostic(range, ErrorCode.E103_INCOMPATIBLE_TYPES,
+                "TypeError: '" + op + "' not supported between instances of '"
+                        + leftType.getDisplayName() + "' and '" + rightType.getDisplayName() + "'",
+                "Ensure both operands have compatible types"));
+    }
+
+    private void checkModulo(TypeKind leftType, TypeKind rightType, SourceRange range) {
+        boolean bothNumeric = isNumeric(leftType) && isNumeric(rightType);
+        if (bothNumeric) {
+            return;
+        }
+        if (leftType == TypeKind.UNKNOWN || rightType == TypeKind.UNKNOWN) {
+            return;
+        }
+
+        diagnosticCollector.addDiagnostic(new Diagnostic(range, ErrorCode.E102_TYPE_ERROR,
+                "TypeError: unsupported operand type(s) for %: '"
+                        + leftType.getDisplayName() + "' and '" + rightType.getDisplayName() + "'",
+                "This operation only works with numeric types (int, float)"));
+    }
+
     private void checkCallExpression(JinjaCallExpr callExpr, TemplateContextBridge bridge) {
         SourceRange range = callExpr.getSourceRange();
         if (range == null) return;
@@ -154,22 +211,24 @@ public class BridgeTypeChecker {
         JinjaExpr callee = callExpr.getCallee();
         TypeKind calleeType = inferType(callee, bridge);
 
-        // E104: Not callable
-        if (calleeType == TypeKind.INT || calleeType == TypeKind.STR || calleeType == TypeKind.FLOAT || calleeType == TypeKind.LIST || calleeType == TypeKind.DICT || calleeType == TypeKind.BOOL) {
+        if (isNonCallableType(calleeType)) {
             String varName = extractVariableName(callee);
-            diagnosticCollector.addDiagnostic(new Diagnostic(range, ErrorCode.E104_NOT_CALLABLE, "TypeError: '" + calleeType.getDisplayName() + "' object is not callable", varName != null ? "Remove () after " + varName : "Remove trailing ()"));
+            diagnosticCollector.addDiagnostic(new Diagnostic(range, ErrorCode.E104_NOT_CALLABLE,
+                    "TypeError: '" + calleeType.getDisplayName() + "' object is not callable",
+                    varName != null ? "Remove () after " + varName : "Remove trailing ()"));
             return;
         }
 
-        // E106: Invalid builtin usage
         if (callee instanceof JinjaIdentifierExpr id) {
             checkBuiltinFunctionUsage(id.getName(), callExpr, bridge);
         }
     }
 
-    /**
-     * Check for statement: verify iterable is actually iterable.
-     */
+    private boolean isNonCallableType(TypeKind type) {
+        return type == TypeKind.INT || type == TypeKind.STR || type == TypeKind.FLOAT
+                || type == TypeKind.LIST || type == TypeKind.DICT || type == TypeKind.BOOL;
+    }
+
     private void checkForStatement(JinjaForStmt forStmt, TemplateContextBridge bridge) {
         JinjaExpr iterable = forStmt.getIterable();
         SourceRange range = forStmt.getSourceRange();
@@ -178,144 +237,152 @@ public class BridgeTypeChecker {
 
         TypeKind iterableType = inferType(iterable, bridge);
 
-        // E107: Check if type is iterable
         if (!isIterableType(iterableType)) {
             String varName = extractVariableName(iterable);
             String iterableName = varName != null ? varName : iterableType.getDisplayName();
-            diagnosticCollector.addDiagnostic(new Diagnostic(range, ErrorCode.E107_NOT_ITERABLE, "TypeError: '" + iterableType.getDisplayName() + "' object is not iterable", "for loop requires an iterable type (list, dict, tuple, set, or str)"));
+            diagnosticCollector.addDiagnostic(new Diagnostic(range, ErrorCode.E107_NOT_ITERABLE,
+                    "TypeError: '" + iterableType.getDisplayName() + "' object is not iterable",
+                    "for loop requires an iterable type (list, dict, tuple, set, or str)"));
         }
     }
 
-    /**
-     * Check if a type is iterable (list, dict, tuple, set, str, or unknown/any for recovery).
-     */
     private boolean isIterableType(TypeKind type) {
         if (type == null) return false;
 
-        // Iterable types
-        if (type == TypeKind.LIST || type == TypeKind.DICT || type == TypeKind.TUPLE || type == TypeKind.SET || type == TypeKind.STR) {
+        if (type == TypeKind.LIST || type == TypeKind.DICT || type == TypeKind.TUPLE
+                || type == TypeKind.SET || type == TypeKind.STR) {
             return true;
         }
 
-        // Allow UNKNOWN and ANY for recovery (no error reported)
-        if (type == TypeKind.UNKNOWN || type == TypeKind.ANY) {
-            return true;
-        }
-
-        return false;
+        return type == TypeKind.UNKNOWN || type == TypeKind.ANY;
     }
 
-    private void checkBuiltinFunctionUsage(String funcName, JinjaCallExpr callExpr, TemplateContextBridge bridge) {
+    private void checkBuiltinFunctionUsage(String funcName, JinjaCallExpr callExpr,
+                                           TemplateContextBridge bridge) {
         SourceRange range = callExpr.getSourceRange();
         if (range == null) return;
 
-        java.util.List<JinjaExpr> args = callExpr.getArgs();
+        List<JinjaExpr> args = callExpr.getArgs();
+        if (args.isEmpty()) return;
 
-        if ("len".equals(funcName) && !args.isEmpty()) {
-            TypeKind argType = inferType(args.get(0), bridge);
-            if (argType != TypeKind.STR && argType != TypeKind.LIST && argType != TypeKind.DICT && argType != TypeKind.TUPLE && argType != TypeKind.SET && argType != TypeKind.UNKNOWN) {
-                diagnosticCollector.addDiagnostic(new Diagnostic(range, ErrorCode.E106_INVALID_BUILTIN_USAGE, "TypeError: object of type '" + argType.getDisplayName() + "' has no len()", "len() expects a sequence or collection type"));
-            }
-        } else if ("sum".equals(funcName) && !args.isEmpty()) {
-            TypeKind argType = inferType(args.get(0), bridge);
-            if (argType != TypeKind.LIST && argType != TypeKind.UNKNOWN) {
-                diagnosticCollector.addDiagnostic(new Diagnostic(range, ErrorCode.E106_INVALID_BUILTIN_USAGE, "TypeError: '" + argType.getDisplayName() + "' object is not iterable", "sum() expects a list of numeric values"));
-            }
+        if ("len".equals(funcName)) {
+            checkLenArgument(args.get(0), bridge, range);
+        } else if ("sum".equals(funcName)) {
+            checkSumArgument(args.get(0), bridge, range);
         }
     }
 
-    /**
-     * CRITICAL: Infer type of any Jinja expression.
-     * <p>
-     * For identifiers like "test", CALLS bridge.getFlaskSymbolType("test")
-     * which returns STR (because test="sarah" was passed from Flask).
-     */
+    private void checkLenArgument(JinjaExpr arg, TemplateContextBridge bridge, SourceRange range) {
+        TypeKind argType = inferType(arg, bridge);
+        boolean validLenType = argType == TypeKind.STR || argType == TypeKind.LIST
+                || argType == TypeKind.DICT || argType == TypeKind.TUPLE
+                || argType == TypeKind.SET || argType == TypeKind.UNKNOWN;
+
+        if (!validLenType) {
+            diagnosticCollector.addDiagnostic(new Diagnostic(range, ErrorCode.E106_INVALID_BUILTIN_USAGE,
+                    "TypeError: object of type '" + argType.getDisplayName() + "' has no len()",
+                    "len() expects a sequence or collection type"));
+        }
+    }
+
+    private void checkSumArgument(JinjaExpr arg, TemplateContextBridge bridge, SourceRange range) {
+        TypeKind argType = inferType(arg, bridge);
+        if (argType != TypeKind.LIST && argType != TypeKind.UNKNOWN) {
+            diagnosticCollector.addDiagnostic(new Diagnostic(range, ErrorCode.E106_INVALID_BUILTIN_USAGE,
+                    "TypeError: '" + argType.getDisplayName() + "' object is not iterable",
+                    "sum() expects a list of numeric values"));
+        }
+    }
+
     private TypeKind inferType(JinjaExpr expr, TemplateContextBridge bridge) {
         if (expr == null) return TypeKind.UNKNOWN;
 
-        // String literals
         if (expr instanceof JinjaStringLiteralExpr) {
             return TypeKind.STR;
         }
 
-        // Number literals
-        if (expr instanceof JinjaNumberLiteralExpr n) {
-            String text = n.getText();
+        if (expr instanceof JinjaNumberLiteralExpr number) {
+            String text = number.getText();
             if (text != null && text.contains(".")) return TypeKind.FLOAT;
             return TypeKind.INT;
         }
 
-        // CRITICAL: Identifiers - get type from Flask
-        // This is where test="sarah" → STR translation happens
         if (expr instanceof JinjaIdentifierExpr id) {
-            TypeKind flaskType = bridge.getFlaskSymbolType(id.getName());
-            return flaskType;
+            return bridge.getFlaskSymbolType(id.getName());
         }
 
-        // Binary expressions
-        if (expr instanceof JinjaBinaryExpr bin) {
-            TypeKind left = inferType(bin.getLeft(), bridge);
-            TypeKind right = inferType(bin.getRight(), bridge);
-            String op = bin.getOp();
-
-            if (op.equals("+")) {
-                if (left == TypeKind.STR && right == TypeKind.STR) return TypeKind.STR;
-                if (left == TypeKind.LIST && right == TypeKind.LIST) return TypeKind.LIST;
-                if ((left == TypeKind.INT || left == TypeKind.FLOAT) && (right == TypeKind.INT || right == TypeKind.FLOAT)) {
-                    if (left == TypeKind.FLOAT || right == TypeKind.FLOAT) return TypeKind.FLOAT;
-                    return TypeKind.INT;
-                }
-            }
-            if (op.equals("-") || op.equals("*") || op.equals("/") || op.equals("//") || op.equals("%")) {
-                if ((left == TypeKind.INT || left == TypeKind.FLOAT) && (right == TypeKind.INT || right == TypeKind.FLOAT)) {
-                    if (left == TypeKind.FLOAT || right == TypeKind.FLOAT || op.equals("/")) return TypeKind.FLOAT;
-                    return TypeKind.INT;
-                }
-            }
-            if (op.equals("==") || op.equals("!=") || op.equals("<") || op.equals(">") || op.equals("<=") || op.equals(">=")) {
-                return TypeKind.BOOL;
-            }
-            return TypeKind.UNKNOWN;
+        if (expr instanceof JinjaBinaryExpr binary) {
+            return inferBinaryType(binary, bridge);
         }
 
-        // Unary expressions
-        if (expr instanceof JinjaUnaryExpr u) {
-            if ("not".equals(u.getOp())) return TypeKind.BOOL;
-            TypeKind t = inferType(u.getExpr(), bridge);
-            if (t == TypeKind.INT || t == TypeKind.FLOAT) return t;
-            return TypeKind.UNKNOWN;
+        if (expr instanceof JinjaUnaryExpr unary) {
+            return inferUnaryType(unary, bridge);
         }
 
-        // Function calls
         if (expr instanceof JinjaCallExpr call) {
-            JinjaExpr callee = call.getCallee();
-            if (callee instanceof JinjaIdentifierExpr id) {
-                String fname = id.getName();
-                switch (fname) {
-                    case "len":
-                        return TypeKind.INT;
-                    case "str":
-                        return TypeKind.STR;
-                    case "int":
-                        return TypeKind.INT;
-                    case "float":
-                        return TypeKind.FLOAT;
-                    case "bool":
-                        return TypeKind.BOOL;
-                    case "list":
-                        return TypeKind.LIST;
-                    case "dict":
-                        return TypeKind.DICT;
-                    case "sum":
-                        return TypeKind.INT;
-                    default:
-                        return TypeKind.UNKNOWN;
-                }
-            }
-            return TypeKind.UNKNOWN;
+            return inferCallType(call);
         }
 
         return TypeKind.UNKNOWN;
+    }
+
+    private TypeKind inferBinaryType(JinjaBinaryExpr binary, TemplateContextBridge bridge) {
+        TypeKind left = inferType(binary.getLeft(), bridge);
+        TypeKind right = inferType(binary.getRight(), bridge);
+        String op = binary.getOp();
+
+        if (op.equals("+")) {
+            if (left == TypeKind.STR && right == TypeKind.STR) return TypeKind.STR;
+            if (left == TypeKind.LIST && right == TypeKind.LIST) return TypeKind.LIST;
+            if (isNumeric(left) && isNumeric(right)) {
+                return (left == TypeKind.FLOAT || right == TypeKind.FLOAT)
+                        ? TypeKind.FLOAT : TypeKind.INT;
+            }
+        }
+
+        if (op.equals("-") || op.equals("*") || op.equals("/") || op.equals("//") || op.equals("%")) {
+            if (isNumeric(left) && isNumeric(right)) {
+                return (left == TypeKind.FLOAT || right == TypeKind.FLOAT || op.equals("/"))
+                        ? TypeKind.FLOAT : TypeKind.INT;
+            }
+        }
+
+        if (op.equals("==") || op.equals("!=") || op.equals("<") || op.equals(">")
+                || op.equals("<=") || op.equals(">=")) {
+            return TypeKind.BOOL;
+        }
+
+        return TypeKind.UNKNOWN;
+    }
+
+    private TypeKind inferUnaryType(JinjaUnaryExpr unary, TemplateContextBridge bridge) {
+        if ("not".equals(unary.getOp())) return TypeKind.BOOL;
+
+        TypeKind type = inferType(unary.getExpr(), bridge);
+        if (type == TypeKind.INT || type == TypeKind.FLOAT) {
+            return type;
+        }
+        return TypeKind.UNKNOWN;
+    }
+
+    private TypeKind inferCallType(JinjaCallExpr call) {
+        JinjaExpr callee = call.getCallee();
+        if (callee instanceof JinjaIdentifierExpr id) {
+            return switch (id.getName()) {
+                case "len", "int", "sum" -> TypeKind.INT;
+                case "str" -> TypeKind.STR;
+                case "float" -> TypeKind.FLOAT;
+                case "bool" -> TypeKind.BOOL;
+                case "list" -> TypeKind.LIST;
+                case "dict" -> TypeKind.DICT;
+                default -> TypeKind.UNKNOWN;
+            };
+        }
+        return TypeKind.UNKNOWN;
+    }
+
+    private boolean isNumeric(TypeKind type) {
+        return type == TypeKind.INT || type == TypeKind.FLOAT;
     }
 
     private String extractVariableName(JinjaExpr expr) {
