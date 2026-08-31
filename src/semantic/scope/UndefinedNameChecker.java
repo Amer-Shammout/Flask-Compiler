@@ -173,6 +173,15 @@ public class UndefinedNameChecker {
             if (func instanceof IdentifierExpr id) {
                 calleeIdentifiers.add(id);
             }
+            if (call.getArguments() != null) {
+                for (Argument a : call.getArguments()) {
+                    if (a instanceof PositionalArgument pos && pos.getValue() != null) {
+                        collectCalleeInExpr(pos.getValue());
+                    } else if (a instanceof KeywordArgument kw && kw.getValue() != null) {
+                        collectCalleeInExpr(kw.getValue());
+                    }
+                }
+            }
         }
         for (var child : expr.getChildren()) {
             if (child instanceof Expression sub)
@@ -330,12 +339,14 @@ public class UndefinedNameChecker {
             }
         }
 
-        // Check arguments
+        // Check arguments (both positional and keyword arguments)
         List<Argument> args = call.getArguments();
         if (args != null) {
             for (Argument a : args) {
                 if (a instanceof PositionalArgument pos && pos.getValue() != null) {
                     checkExpressionScopes(pos.getValue());
+                } else if (a instanceof KeywordArgument kw && kw.getValue() != null) {
+                    checkExpressionScopes(kw.getValue());
                 }
             }
         }
