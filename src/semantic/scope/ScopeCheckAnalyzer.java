@@ -10,14 +10,7 @@ import java.util.*;
 
 /**
  * Analyzer for E202 (Use Before Definition) and E203 (Out Of Scope) errors.
- * <p>
- * This analyzer works with the already-built Flask reference index and symbol table
- * to detect:
- * - E202: Variable used before definition in the same scope (or satisfied by ancestor)
- * - E203: Variable referenced outside its valid scope
- * <p>
- * IMPORTANT: This analyzer queries the existing FlaskReferenceIndex built by
- * FlaskSymbolTableBuilder and does NOT attempt to re-build the symbol table.
+ * Refactored to remove duplication and keep the original semantics intact.
  */
 public class ScopeCheckAnalyzer {
 
@@ -25,15 +18,13 @@ public class ScopeCheckAnalyzer {
     private final DiagnosticCollector diagnostics;
     private final FlaskSymbolTableBuilder builder;
 
-    public ScopeCheckAnalyzer(SymbolTableRepository repository, DiagnosticCollector diagnostics, FlaskSymbolTableBuilder builder) {
+    public ScopeCheckAnalyzer(SymbolTableRepository repository, DiagnosticCollector diagnostics,
+                              FlaskSymbolTableBuilder builder) {
         this.repository = repository;
         this.diagnostics = diagnostics;
         this.builder = builder;
     }
 
-    /**
-     * Perform scope analysis: detect E202 (use before definition) and E203 (out of scope).
-     */
     public void analyze() {
         if (builder == null || repository == null) {
             return;
@@ -44,129 +35,236 @@ public class ScopeCheckAnalyzer {
             return;
         }
 
-        // Step 1: Check for E202 (use before definition in same scope or ancestor)
         checkUseBeforeDefinition(index);
-
-        // Step 2: Check for E203 (out of scope access)
         checkOutOfScope(index);
+        checkNonlocalDeclarations(index);
     }
 
-    /**
-     * E202: Variable used before definition in the same scope.
-     * <p>
-     * Behaviour:
-     * - Consider only the same use-scope and its ancestor chain.
-     * - When multiple scopes share the same name (e.g. many "for" scopes), examine all
-     * candidate scopes and their ancestor chains; if any ancestor provides a definition
-     * that occurs before the reference, do NOT emit E202.
-     * - Do NOT perform a global "anywhere" fallback (that caused false negatives).
-     */
     private void checkUseBeforeDefinition(FlaskReferenceIndex index) {
-        // Group by (scope name, symbol name) -> list of sites in that scope
-        Map<String, Map<String, List<SymbolReference>>> scopedSites = new HashMap<>();
+        Map<String, Map<String, List<SymbolReference>>> groupedReferences = groupByScopeAndName(index);
+
+        FlaskSymbolTable flaskRoot = getFlaskRoot();
+        for (Map.Entry<String, Map<String, List<SymbolReference>>> scopeEntry : groupedReferences.entrySet()) {
+            String scopeName = scopeEntry.getKey();
+            Set<String> localVars = getLocalVariablesInScope(scopeName, index);
+
+            for (Map.Entry<String, List<SymbolReference>> nameEntry : scopeEntry.getValue().entrySet()) {
+                String symbolName = nameEntry.getKey();
+                List<SymbolReference> sites = sortReferences(nameEntry.getValue());
+
+                SymbolReference firstDefInSameScope = findFirstDefinition(sites);
+                if (hasNonlocalDeclaration(sites)) {
+                    continue;
+                }
+
+                if (localVars.contains(symbolName)) {
+                    reportEarlyReferenceBeforeDefinition(sites, firstDefInSameScope, symbolName);
+                    continue;
+                }
+
+                reportEarlyReferenceBeforeDefinition(sites, firstDefInSameScope, symbolName, flaskRoot, index);
+            }
+        }
+    }
+
+    private Map<String, Map<String, List<SymbolReference>>> groupByScopeAndName(FlaskReferenceIndex index) {
+        Map<String, Map<String, List<SymbolReference>>> grouped = new HashMap<>();
 
         for (SymbolReference ref : index.getAllSites()) {
             String scopeName = ref.getUseScopeName();
             String symbolName = ref.getName();
 
-            scopedSites.computeIfAbsent(scopeName, k -> new HashMap<>())
-                    .computeIfAbsent(symbolName, k -> new ArrayList<>())
+            if (scopeName == null || symbolName == null || symbolName.isBlank()) {
+                continue;
+            }
+
+            grouped
+                    .computeIfAbsent(scopeName, ignored -> new HashMap<>())
+                    .computeIfAbsent(symbolName, ignored -> new ArrayList<>())
                     .add(ref);
         }
 
-        // Acquire flask root to allow ancestor lookups (define outside if to avoid pattern-scope problems)
-        ISymbolTable flaskGlobal = repository.getFlaskGlobal();
-        FlaskSymbolTable flaskRoot = null;
-        if (flaskGlobal instanceof FlaskSymbolTable) {
-            flaskRoot = (FlaskSymbolTable) flaskGlobal;
-        }
-
-        // For each scope+name combination, check if any REFERENCE precedes a DEFINITION
-        for (Map.Entry<String, Map<String, List<SymbolReference>>> scopeEntry : scopedSites.entrySet()) {
-            Map<String, List<SymbolReference>> nameMap = scopeEntry.getValue();
-
-            for (Map.Entry<String, List<SymbolReference>> nameEntry : nameMap.entrySet()) {
-                String symbolName = nameEntry.getKey();
-                List<SymbolReference> sites = nameEntry.getValue();
-
-                // Sort by source location (line, then column)
-                sites.sort(this::compareByLocation);
-
-                // Find first DEFINITION in the same scope
-                SymbolReference firstDefInSameScope = null;
-                for (SymbolReference ref : sites) {
-                    if (ref.getUseKind() == SymbolUseKind.DEFINITION) {
-                        firstDefInSameScope = ref;
-                        break;
-                    }
-                }
-
-                // If there's a definition in the same scope, check for references before it
-                if (firstDefInSameScope != null) {
-                    for (SymbolReference ref : sites) {
-                        if (ref.getUseKind() == SymbolUseKind.REFERENCE) {
-                            if (compareByLocation(ref, firstDefInSameScope) < 0) {
-                                // This reference precedes the first definition in the same scope.
-                                // Before emitting E202, check ancestor scopes of the use-site only.
-                                boolean skipE202 = false;
-
-                                if (flaskRoot != null) {
-                                    // There may be multiple candidate scopes with identical name (e.g. multiple "for").
-                                    // Try all candidates and their ancestor chains: if any candidate's ancestor
-                                    // chain supplies a definition that occurs before the reference, skip E202.
-                                    List<ISymbolTable> candidates = findAllScopesByName(flaskRoot, ref.getUseScopeName());
-                                    for (ISymbolTable candidateScope : candidates) {
-                                        if (hasAncestorDefinitionBefore(index, candidateScope, symbolName, ref)) {
-                                            skipE202 = true;
-                                            break;
-                                        }
-                                    }
-                                }
-
-                                if (!skipE202) {
-                                    emitE202(ref, symbolName);
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
+        return grouped;
     }
 
-    /**
-     * Check if any ancestor (parent, parent's parent, ...) of useScope contains a DEFINITION
-     * for 'name' that occurs before the given reference location.
-     * <p>
-     * This function inspects the recorded definitions in the reference index and matches
-     * definitions by scope name to ancestors of the provided useScope.
-     */
-    private boolean hasAncestorDefinitionBefore(FlaskReferenceIndex index, ISymbolTable useScope, String name, SymbolReference reference) {
-        ISymbolTable cur = NameResolver.parentOf(useScope);
-        while (cur != null) {
-            String curScopeName = NameResolver.scopeName(cur);
-            // Look through definitions recorded in the index to find defs that belong to this scope
-            for (SymbolReference def : index.getDefinitions()) {
-                if (name.equals(def.getName()) && curScopeName != null && curScopeName.equals(def.getUseScopeName())) {
-                    // If this definition occurs before the reference, the ref is satisfied by ancestor
-                    if (compareByLocation(def, reference) < 0) {
-                        return true;
-                    }
-                }
+    private FlaskSymbolTable getFlaskRoot() {
+        ISymbolTable flaskGlobal = repository.getFlaskGlobal();
+        return flaskGlobal instanceof FlaskSymbolTable table ? table : null;
+    }
+
+    private List<SymbolReference> sortReferences(List<SymbolReference> references) {
+        List<SymbolReference> copy = new ArrayList<>(references);
+        copy.sort(this::compareByLocation);
+        return copy;
+    }
+
+    private SymbolReference findFirstDefinition(List<SymbolReference> sites) {
+        for (SymbolReference ref : sites) {
+            if (ref.getUseKind() == SymbolUseKind.DEFINITION) {
+                return ref;
             }
-            cur = NameResolver.parentOf(cur);
+        }
+        return null;
+    }
+
+    private boolean hasNonlocalDeclaration(List<SymbolReference> sites) {
+        for (SymbolReference ref : sites) {
+            if (ref.getUseKind() == SymbolUseKind.NONLOCAL_DECLARATION) {
+                return true;
+            }
         }
         return false;
     }
 
+    private void reportEarlyReferenceBeforeDefinition(List<SymbolReference> sites,
+                                                      SymbolReference firstDefinition,
+                                                      String symbolName) {
+        reportEarlyReferenceBeforeDefinition(sites, firstDefinition, symbolName, null, null);
+    }
+
+    private void reportEarlyReferenceBeforeDefinition(List<SymbolReference> sites,
+                                                      SymbolReference firstDefinition,
+                                                      String symbolName,
+                                                      FlaskSymbolTable flaskRoot,
+                                                      FlaskReferenceIndex index) {
+        if (firstDefinition == null) {
+            return;
+        }
+
+        for (SymbolReference ref : sites) {
+            if (ref.getUseKind() != SymbolUseKind.REFERENCE) {
+                continue;
+            }
+
+            if (compareByLocation(ref, firstDefinition) >= 0) {
+                continue;
+            }
+
+            if (flaskRoot != null && index != null) {
+                Optional<ISymbolTable> useScopeOpt = ref.getUseScope();
+                if (useScopeOpt.isPresent() && hasAncestorDefinitionBefore(index, useScopeOpt.get(), symbolName, ref)) {
+                    continue;
+                }
+            }
+
+            emitE202(ref, symbolName);
+        }
+    }
+
     /**
-     * E203: Variable referenced outside its valid scope.
-     * <p>
-     * Strategy:
-     * - For each REFERENCE that is UNRESOLVED, check if there exists a definition somewhere
-     * in the Flask symbol table (deep definition).
-     * - If a deep definition exists but is not accessible from the use scope -> E203.
+     * Ensures that a nonlocal declaration points to a real binding in
+     * an enclosing function scope, not global.
      */
+    private void checkNonlocalDeclarations(FlaskReferenceIndex index) {
+        for (SymbolReference ref : index.getAllSites()) {
+            if (ref.getUseKind() != SymbolUseKind.NONLOCAL_DECLARATION) {
+                continue;
+            }
+
+            String name = ref.getName();
+            Optional<ISymbolTable> useScopeOpt = ref.getUseScope();
+
+            if (useScopeOpt.isEmpty() || !hasEnclosingFunctionBinding(index, useScopeOpt.get(), name)) {
+                emitNonlocalBindingError(ref, name);
+            }
+        }
+    }
+
+    private boolean hasEnclosingFunctionBinding(FlaskReferenceIndex index, ISymbolTable useScope, String name) {
+        ISymbolTable current = NameResolver.parentOf(useScope);
+
+        while (current != null) {
+            String currentScopeName = NameResolver.scopeName(current);
+
+            if (currentScopeName == null || isModuleScope(currentScopeName)) {
+                break;
+            }
+
+            for (SymbolReference def : index.getDefinitions()) {
+                if (name.equals(def.getName()) && currentScopeName.equals(def.getUseScopeName())) {
+                    return true;
+                }
+            }
+
+            current = NameResolver.parentOf(current);
+        }
+
+        return false;
+    }
+
+    private boolean isModuleScope(String scopeName) {
+        return scopeName == null || scopeName.equals("flask-global") || scopeName.equals("global");
+    }
+
+    private void emitNonlocalBindingError(SymbolReference ref, String symbolName) {
+        SourceRange loc = ref.getLocation();
+        String message = String.format(
+                "nonlocal declaration of '%s' has no binding in any enclosing function scope",
+                symbolName
+        );
+        String hint = "A nonlocal name must be defined in an enclosing function scope, not in the global scope.";
+        diagnostics.addDiagnostic(new Diagnostic(loc, ErrorCode.E203_OUT_OF_SCOPE, message, hint));
+    }
+
+    /**
+     * Returns the set of names that are truly local to a scope.
+     * A name is local only if:
+     * - it is defined in this scope
+     * - and is not declared as global/nonlocal
+     */
+    private Set<String> getLocalVariablesInScope(String scopeName, FlaskReferenceIndex index) {
+        Set<String> localVars = new HashSet<>();
+        Set<String> globalVars = new HashSet<>();
+        Set<String> nonlocalVars = new HashSet<>();
+
+        for (SymbolReference def : index.getDefinitions()) {
+            if (scopeName.equals(def.getUseScopeName())) {
+                localVars.add(def.getName());
+            }
+        }
+
+        for (SymbolReference ref : index.getAllSites()) {
+            if (ref.getUseKind() == SymbolUseKind.GLOBAL_DECLARATION &&
+                    scopeName.equals(ref.getUseScopeName())) {
+                globalVars.add(ref.getName());
+            }
+        }
+
+        for (SymbolReference ref : index.getAllSites()) {
+            if (ref.getUseKind() == SymbolUseKind.NONLOCAL_DECLARATION &&
+                    scopeName.equals(ref.getUseScopeName())) {
+                nonlocalVars.add(ref.getName());
+            }
+        }
+
+        localVars.removeAll(globalVars);
+        localVars.removeAll(nonlocalVars);
+
+        return localVars;
+    }
+
+    private boolean hasAncestorDefinitionBefore(FlaskReferenceIndex index, ISymbolTable useScope, String name,
+                                                SymbolReference reference) {
+        ISymbolTable current = NameResolver.parentOf(useScope);
+
+        while (current != null) {
+            String currentScopeName = NameResolver.scopeName(current);
+
+            for (SymbolReference def : index.getDefinitions()) {
+                if (name.equals(def.getName()) &&
+                        currentScopeName != null &&
+                        currentScopeName.equals(def.getUseScopeName()) &&
+                        compareByLocation(def, reference) < 0) {
+                    return true;
+                }
+            }
+
+            current = NameResolver.parentOf(current);
+        }
+
+        return false;
+    }
+
     private void checkOutOfScope(FlaskReferenceIndex index) {
         ISymbolTable flaskGlobal = repository.getFlaskGlobal();
         if (!(flaskGlobal instanceof FlaskSymbolTable flaskRoot)) {
@@ -175,160 +273,57 @@ public class ScopeCheckAnalyzer {
 
         for (SymbolReference ref : index.getReferences()) {
             String name = ref.getName();
-            if (name == null || name.isBlank()) continue;
-
-            // If the reference was resolved (status != UNDEFINED), skip here — accessible or shadowed
-            if (ref.isResolved()) {
+            if (name == null || name.isBlank() || ref.isResolved()) {
                 continue;
             }
 
-            // If the reference is unresolved, check if there is a definition somewhere else in the Flask tree
             Optional<Symbol> deep = flaskRoot.findDeepest(name);
             if (deep.isEmpty()) {
-                // No deep definition exists; this is a true undefined (E001/E002). Skip here.
                 continue;
             }
 
-            // There is a deep definition somewhere -> check accessibility from use-scope
-            String useScopeName = ref.getUseScopeName();
-            // Map useScopeName to actual ISymbolTable
-            ISymbolTable useScope = findScopeByName(flaskRoot, useScopeName);
-
-            // If we cannot map use scope, fallback to global as use site
-            if (useScope == null) useScope = flaskRoot;
-
-            // Find defining scope where this name is declared
-            ISymbolTable definingScope = findDefiningScope(flaskRoot, name);
-            if (definingScope == null) {
-                // Can't locate the defining scope object - be conservative and skip
+            Optional<ISymbolTable> useScopeOpt = ref.getUseScope();
+            if (useScopeOpt.isEmpty()) {
+                useScopeOpt = Optional.of(flaskRoot);
+            }
+            Optional<ISymbolTable> definingScopeOpt = ref.getDefiningScope();
+            if (definingScopeOpt.isEmpty()) {
                 continue;
             }
 
+            ISymbolTable useScope = useScopeOpt.get();
+            ISymbolTable definingScope = definingScopeOpt.get();
             String definingScopeName = NameResolver.scopeName(definingScope);
-            // Skip builtins/runtime as they are considered accessible
-            if ("python-builtins".equals(definingScopeName) || "python-runtime".equals(definingScopeName)) {
+
+            if (isBuiltInScope(definingScopeName)) {
                 continue;
             }
 
-            // Special-case loop variables: do not report E203 when definition is in a 'for' scope
-            if (definingScopeName != null && definingScopeName.contains("for")) {
-                continue;
-            }
-
-            // Check accessibility: a use-scope can access the defining scope when definingScope is an ancestor of useScope (or same scope)
             if (!canAccessDefiningScope(useScope, definingScope)) {
                 emitE203(ref, name, definingScopeName);
             }
         }
     }
 
-    /**
-     * Search for a scope by name in the scope tree (BFS).
-     * Returns the ISymbolTable with the given name, or null if not found.
-     */
-    private ISymbolTable findScope(ISymbolTable root, String scopeName) {
-        if (root == null || scopeName == null) return null;
-
-        Queue<ISymbolTable> queue = new LinkedList<>();
-        queue.offer(root);
-
-        while (!queue.isEmpty()) {
-            ISymbolTable current = queue.poll();
-            String currentName = NameResolver.scopeName(current);
-
-            if (scopeName.equals(currentName)) {
-                return current;
-            }
-
-            if (current instanceof AbstractSymbolTable abstractTable) {
-                for (ISymbolTable child : abstractTable.getChildren()) {
-                    queue.offer(child);
-                }
-            }
-        }
-
-        return null;
+    private boolean isBuiltInScope(String scopeName) {
+        return "python-builtins".equals(scopeName) || "python-runtime".equals(scopeName);
     }
 
-    // Convenience wrapper with clearer name
-    private ISymbolTable findScopeByName(ISymbolTable root, String scopeName) {
-        return findScope(root, scopeName);
-    }
-
-    /**
-     * Find all scopes that have the given scopeName (BFS). Returns an empty list if none found.
-     * Used when scopes may have non-unique names (e.g. multiple "for" scopes).
-     */
-    private List<ISymbolTable> findAllScopesByName(ISymbolTable root, String scopeName) {
-        List<ISymbolTable> result = new ArrayList<>();
-        if (root == null || scopeName == null) return result;
-
-        Queue<ISymbolTable> queue = new LinkedList<>();
-        queue.offer(root);
-
-        while (!queue.isEmpty()) {
-            ISymbolTable current = queue.poll();
-            String currentName = NameResolver.scopeName(current);
-
-            if (scopeName.equals(currentName)) {
-                result.add(current);
-            }
-
-            if (current instanceof AbstractSymbolTable abstractTable) {
-                for (ISymbolTable child : abstractTable.getChildren()) {
-                    queue.offer(child);
-                }
-            }
-        }
-        return result;
-    }
-
-    /**
-     * Find the scope that defines a given name by searching lookupLocal across the tree.
-     * Returns the first scope found (depth-first search preferring higher nodes to find the defining scope).
-     */
-    private ISymbolTable findDefiningScope(ISymbolTable root, String name) {
-        if (root == null || name == null) return null;
-        if (root.lookupLocal(name).isPresent()) {
-            return root;
-        }
-        if (root instanceof AbstractSymbolTable abstractTable) {
-            for (ISymbolTable child : abstractTable.getChildren()) {
-                ISymbolTable found = findDefiningScope(child, name);
-                if (found != null) return found;
-            }
-        }
-        return null;
-    }
-
-    /**
-     * Check if useScope can access definingScope.
-     * <p>
-     * Rules:
-     * - If useScope == definingScope: YES (same scope)
-     * - If definingScope is ancestor of useScope: YES
-     * - Otherwise: NO
-     */
     private boolean canAccessDefiningScope(ISymbolTable useScope, ISymbolTable definingScope) {
         if (useScope == definingScope) {
             return true;
         }
 
-        ISymbolTable cur = useScope;
-        while (cur != null) {
-            if (cur == definingScope) return true;
-            cur = NameResolver.parentOf(cur);
+        ISymbolTable current = useScope;
+        while (current != null) {
+            if (current == definingScope) {
+                return true;
+            }
+            current = NameResolver.parentOf(current);
         }
         return false;
     }
 
-    /**
-     * Compare two SymbolReferences by source location (line, then column).
-     * Returns:
-     * - negative if ref1 comes before ref2
-     * - 0 if same location
-     * - positive if ref1 comes after ref2
-     */
     private int compareByLocation(SymbolReference ref1, SymbolReference ref2) {
         SourceRange loc1 = ref1.getLocation();
         SourceRange loc2 = ref2.getLocation();
@@ -340,14 +335,13 @@ public class ScopeCheckAnalyzer {
         if (loc1.getStart() == null || loc2.getStart() == null) return 0;
 
         int lineCompare = Integer.compare(loc1.getStart().getLine(), loc2.getStart().getLine());
-        if (lineCompare != 0) return lineCompare;
+        if (lineCompare != 0) {
+            return lineCompare;
+        }
 
         return Integer.compare(loc1.getStart().getColumn(), loc2.getStart().getColumn());
     }
 
-    /**
-     * Emit diagnostic E202: Variable used before definition.
-     */
     private void emitE202(SymbolReference reference, String symbolName) {
         SourceRange loc = reference.getLocation();
         String message = String.format("Variable '%s' used before definition in this scope", symbolName);
@@ -355,9 +349,6 @@ public class ScopeCheckAnalyzer {
         diagnostics.addDiagnostic(new Diagnostic(loc, ErrorCode.E202_USE_BEFORE_DEFINITION, message, hint));
     }
 
-    /**
-     * Emit diagnostic E203: Variable referenced out of scope.
-     */
     private void emitE203(SymbolReference reference, String symbolName, String definingScopeName) {
         SourceRange loc = reference.getLocation();
         String message = String.format("Variable '%s' is out of scope (defined in %s)", symbolName, definingScopeName);

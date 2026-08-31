@@ -38,6 +38,7 @@ simple_stmt
     | continue_stmt
     | del_stmt
     | global_stmt
+    | nonlocal_stmt
     | import_stmt
     | expr
     ;
@@ -74,6 +75,10 @@ del_stmt
 
 global_stmt
     : GLOBAL IDENTIFIER (COMMA IDENTIFIER)*
+    ;
+
+nonlocal_stmt
+    : NONLOCAL IDENTIFIER (COMMA IDENTIFIER)*
     ;
 
 import_stmt
@@ -205,7 +210,7 @@ power
 
 // unary +/-
 unary
-    : (PLUS | MINUS) unary                       # UnaryPMExpr
+    : (PLUS | MINUS | TILDE) unary                       # UnaryPMExpr
     | primary                                    # PrimaryExpr
     ;
 

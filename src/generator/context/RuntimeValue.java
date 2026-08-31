@@ -6,6 +6,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Locale;
 
 /**
  * Runtime representation of a Python value used during code generation.
@@ -176,11 +177,10 @@ public final class RuntimeValue {
             case INT -> Long.toString((Long) value);
             case FLOAT -> {
                 double d = (Double) value;
-                // Prefer "1200.0" style when whole; otherwise plain double
                 if (d == Math.rint(d) && !Double.isInfinite(d)) {
-                    yield String.format("%.1f", d);
+                    yield String.format(Locale.ROOT, "%.1f", d);
                 }
-                yield Double.toString(d);
+                yield String.format(Locale.ROOT, "%s", Double.toString(d));
             }
             case STRING -> (String) value;
             case LIST -> value.toString();

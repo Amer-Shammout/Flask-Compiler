@@ -687,6 +687,18 @@ public class TemplateVisitor extends TemplateParserBaseVisitor<ASTNode> {
     }
 
     @Override
+    public ASTNode visitJinjaSetStatement(TemplateParser.JinjaSetStatementContext ctx) {
+        return visit(ctx.jinja_set_statement());
+    }
+
+    @Override
+    public ASTNode visitJinjaSetStmtRule(TemplateParser.JinjaSetStmtRuleContext ctx) {
+        String name = ctx.JINJA_STMT_ID().getText();
+        JinjaExpr value = (JinjaExpr) visit(ctx.jinja_stmt_expr());
+        return new JinjaSetStmt(name, value, range(ctx));
+    }
+
+    @Override
     public ASTNode visitJinjaBlockStatement(TemplateParser.JinjaBlockStatementContext ctx) {
         return visit(ctx.jinja_block_statement());
     }

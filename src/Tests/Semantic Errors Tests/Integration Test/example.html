@@ -1,0 +1,57 @@
+{#
+Total expected template errors: 9
+
+- E102: str + int (literal)
+- E103: str > int
+- E104: int not callable
+- E106: len(int)
+- E106: sum(str)
+- E004: age (Flask variable not passed)
+- E001: undefined_var (not in template or Flask)
+- E004: items (Flask variable not passed)
+- E203: item used outside for loop
+#}
+<!DOCTYPE html>
+<html>
+<body>
+
+{# E102: TypeError str + int #}
+{{ "test" + 1 }}
+
+{# E103: TypeError '>' not supported between str and int #}
+{{ "test" > 8 }}
+
+{# E104: 'int' object is not callable #}
+{{ 5() }}
+
+
+{# E106: object of type 'int' has no len() #}
+{{ len(100) }}
+
+{# E106: sum() expects a list of numeric values #}
+{{ sum("test") }}
+
+{# E004: age defined in Flask but not passed to render_template #}
+{{ age }}
+
+{# E001: undefined_var is neither defined in template nor in Flask #}
+{{ undefined_var }}
+
+{# E004: items defined in Flask but not passed to render_template #}
+{% for item in items %}
+{{ item }}
+{% endfor %}
+
+{# E203: item used outside its defining for-loop scope #}
+{{ item }}
+
+{# Local set: no error #}
+{% set local_var = "Hello" %}
+{{ local_var }}
+
+{# E102: local str + int #}
+{% set x = "a" %}
+{{ x + 1 }}
+
+</body>
+</html>

@@ -1,8 +1,5 @@
 package semantic.diagnostics;
 
-import java.util.ArrayList;
-import java.util.List;
-
 /**
  * ColoredLogger
  */
@@ -91,26 +88,6 @@ public class ColoredLogger {
         System.out.println("═".repeat(70) + "\n");
     }
 
-    /**
-     * Print diagnostics sorted by line number for each section
-     */
-    public static void printSeparatedDiagnostics(DiagnosticCollector collector) {
-        if (collector.isEmpty()) {
-            System.out.println(color(BRIGHT_GREEN + BOLD, "  ✨ No errors or warnings found!"));
-            return;
-        }
-
-        // Use sorted diagnostics (severity then location) for deterministic display.
-        List<Diagnostic> sortedDiagnostics = new ArrayList<>(collector.getSortedDiagnostics());
-
-        // If caller expects grouping by line only, they can still rely on sorting within DiagnosticCollector.
-        System.out.println("  📊 " + color(BRIGHT_RED + BOLD, "Errors: " + collector.getErrorCount()) + "  |  " + color(BRIGHT_YELLOW + BOLD, "Warnings: " + collector.getWarningCount()) + "  |  " + color(BRIGHT_BLUE + BOLD, "Infos: " + collector.getInfoCount()) + "  |  " + color(BRIGHT_GREEN + BOLD, "Hints: " + collector.getHintCount()));
-        System.out.println();
-
-        for (Diagnostic diag : sortedDiagnostics) {
-            printDiagnostic(diag);
-        }
-    }
 
     public static String color(String className, String colorCode, String text) {
         return COLORS_ENABLED ? "\u001B[" + colorCode + "m" + text + RESET : text;

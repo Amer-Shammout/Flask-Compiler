@@ -1,6 +1,6 @@
 package generator.context;
 
-import AST.Program;
+import AST.flask.Program;
 
 import java.util.ArrayList;
 import java.util.List;

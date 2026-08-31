@@ -4,17 +4,18 @@ import AST.SourceRange;
 import AST.template.TemplateNode;
 import AST.template.jinja.expr.*;
 
-import SymbolTable.NameResolver;
-import SymbolTable.ScopeBinding;
-import SymbolTable.Symbol;
-import SymbolTable.SymbolKind;
-import SymbolTable.SymbolTableRepository;
+import AST.template.jinja.stmt.JinjaBlockStmt;
+import AST.template.jinja.stmt.JinjaForStmt;
+import AST.template.jinja.stmt.JinjaSetStmt;
+import SymbolTable.*;
 import semantic.diagnostics.Diagnostic;
 import semantic.diagnostics.DiagnosticCollector;
 import semantic.diagnostics.ErrorCode;
 import semantic.diagnostics.TypeKind;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -30,6 +31,12 @@ public class TemplateTypeErrorChecker {
     private final SymbolTableRepository repository;
     private final DiagnosticCollector diagnostics;
 
+    private ISymbolTable activeTable;
+    private int siblingScopeIndex = 0;
+
+    private final Map<String, TypeKind> localSetTypes = new HashMap<>();
+
+
     public TemplateTypeErrorChecker(SymbolTableRepository repository, DiagnosticCollector diagnostics) {
         this.repository = repository;
         this.diagnostics = diagnostics;
@@ -40,6 +47,8 @@ public class TemplateTypeErrorChecker {
      */
     public void checkTemplate(TemplateNode root) {
         if (root == null) return;
+        activeTable = repository.getTemplateGlobal();
+        siblingScopeIndex = 0;
         walkNode(root);
     }
 
@@ -54,106 +63,165 @@ public class TemplateTypeErrorChecker {
             return;
         }
 
-        if (node instanceof java.util.List<?> list) {
-            for (Object o : list) walkNode(o);
+        if (node instanceof JinjaForStmt forStmt) {
+            walkForStmt(forStmt);
             return;
         }
 
+        if (node instanceof JinjaBlockStmt blockStmt) {
+            walkBlockStmt(blockStmt);
+            return;
+        }
+
+        if (node instanceof JinjaSetStmt setStmt) {
+            TypeKind valueType = inferType(setStmt.getValue());
+            localSetTypes.put(setStmt.getName(), valueType);
+            walkNode(setStmt.getValue());
+            return;
+        }
+
+        if (node instanceof List<?> list) {
+            for (Object child : list) {
+                walkNode(child);
+            }
+            return;
+        }
+
+        // Reflection fallback
         try {
-            var m = node.getClass().getMethod("getChildren");
-            Object children = m.invoke(node);
-            if (children instanceof List<?>) {
-                for (Object c : (List<?>) children) walkNode(c);
+            var getChildren = node.getClass().getMethod("getChildren");
+            Object children = getChildren.invoke(node);
+            if (children instanceof List<?> childList) {
+                for (Object child : childList) {
+                    walkNode(child);
+                }
             }
         } catch (Exception ignored) {
+            // No children method or inaccessible
         }
     }
 
+    private void walkForStmt(JinjaForStmt forStmt) {
+        ISymbolTable previous = activeTable;
+
+        activeTable = enterSiblingScope();
+        int nextSiblingIndex = siblingScopeIndex;
+        siblingScopeIndex = 0;
+
+        for (var child : forStmt.getChildren()) {
+            walkNode(child);
+        }
+
+        activeTable = previous;
+        siblingScopeIndex = nextSiblingIndex;
+    }
+
+    private void walkBlockStmt(JinjaBlockStmt blockStmt) {
+        ISymbolTable previous = activeTable;
+        int previousSiblingIndex = siblingScopeIndex;
+
+        activeTable = findNamedChildScope("block:" + blockStmt.getName());
+        if (activeTable == null) {
+            activeTable = previous;
+        }
+        siblingScopeIndex = 0;
+
+        for (var child : blockStmt.getChildren()) {
+            walkNode(child);
+        }
+
+        activeTable = previous;
+        siblingScopeIndex = previousSiblingIndex;
+    }
+
     /**
-     * CRITICAL: Infer type for TEMPLATE-LOCAL variables only.
+     * Infer type for TEMPLATE-LOCAL variables only.
      * Return UNKNOWN for anything that might come from Flask.
      */
     private TypeKind inferType(JinjaExpr expr) {
         if (expr == null) return TypeKind.UNKNOWN;
 
-        if (expr instanceof JinjaStringLiteralExpr) {
-            return TypeKind.STR;
-        }
+        return switch (expr) {
+            case JinjaStringLiteralExpr ignored -> TypeKind.STR;
+            case JinjaNumberLiteralExpr n -> inferNumberType(n);
+            case JinjaIdentifierExpr id -> inferIdentifierType(id);
+            case JinjaBinaryExpr bin -> inferBinaryType(bin);
+            case JinjaUnaryExpr un -> inferUnaryType(un);
+            case JinjaCallExpr call -> inferCallType(call);
+            default -> TypeKind.UNKNOWN;
+        };
+    }
 
-        if (expr instanceof JinjaNumberLiteralExpr n) {
-            String text = n.getText();
-            if (text != null && text.contains(".")) return TypeKind.FLOAT;
-            return TypeKind.INT;
+    private TypeKind inferNumberType(JinjaNumberLiteralExpr n) {
+        String text = n.getText();
+        if (text != null && text.contains(".")) {
+            return TypeKind.FLOAT;
         }
+        return TypeKind.INT;
+    }
 
-        // CRITICAL: For identifiers, check ONLY template-local scope.
-        // If it's not in template-local scope, return UNKNOWN.
-        // This will be checked by BridgeTypeChecker with Flask context.
-        if (expr instanceof JinjaIdentifierExpr id) {
-            String name = id.getName();
-            if (repository.getTemplateGlobal() != null) {
-                Optional<ScopeBinding> tb = NameResolver.resolve(repository.getTemplateGlobal(), name);
-                if (tb.isPresent() && tb.get().getSymbol() != null) {
-                    return tb.get().getSymbol().getInferredType();
-                }
+    private TypeKind inferIdentifierType(JinjaIdentifierExpr id) {
+        String name = id.getName();
+        if (localSetTypes.containsKey(name)) {
+            return localSetTypes.get(name);
+        }
+        if (activeTable != null) {
+            Optional<ScopeBinding> binding = NameResolver.resolve(activeTable, name);
+            if (binding.isPresent() && binding.get().getSymbol() != null) {
+                return binding.get().getSymbol().getInferredType();
             }
-            // Not found in template-local scope. Could be from Flask.
-            // Let BridgeTypeChecker handle it.
-            return TypeKind.UNKNOWN;
+        }
+         // Not found locally -> might be from Flask, so UNKNOWN
+        return TypeKind.UNKNOWN;
+    }
+
+    private TypeKind inferBinaryType(JinjaBinaryExpr bin) {
+        TypeKind left = inferType(bin.getLeft());
+        TypeKind right = inferType(bin.getRight());
+        String op = bin.getOp();
+
+        if (op.equals("+")) {
+            if (left == TypeKind.STR && right == TypeKind.STR) return TypeKind.STR;
+            if (left == TypeKind.LIST && right == TypeKind.LIST) return TypeKind.LIST;
+            if (isNumeric(left) && isNumeric(right)) {
+                return (left == TypeKind.FLOAT || right == TypeKind.FLOAT) ? TypeKind.FLOAT : TypeKind.INT;
+            }
         }
 
-        if (expr instanceof JinjaBinaryExpr bin) {
-            TypeKind left = inferType(bin.getLeft());
-            TypeKind right = inferType(bin.getRight());
-            String op = bin.getOp();
-
-            if (op.equals("+")) {
-                if (left == TypeKind.STR && right == TypeKind.STR) return TypeKind.STR;
-                if (left == TypeKind.LIST && right == TypeKind.LIST) return TypeKind.LIST;
-                if ((left == TypeKind.INT || left == TypeKind.FLOAT) && (right == TypeKind.INT || right == TypeKind.FLOAT)) {
-                    if (left == TypeKind.FLOAT || right == TypeKind.FLOAT) return TypeKind.FLOAT;
-                    return TypeKind.INT;
-                }
+        if (isArithmeticOperator(op)) {
+            if (isNumeric(left) && isNumeric(right)) {
+                return (left == TypeKind.FLOAT || right == TypeKind.FLOAT || op.equals("/"))
+                        ? TypeKind.FLOAT : TypeKind.INT;
             }
-            if (op.equals("-") || op.equals("*") || op.equals("/") || op.equals("//") || op.equals("%")) {
-                if ((left == TypeKind.INT || left == TypeKind.FLOAT) && (right == TypeKind.INT || right == TypeKind.FLOAT)) {
-                    if (left == TypeKind.FLOAT || right == TypeKind.FLOAT || op.equals("/")) return TypeKind.FLOAT;
-                    return TypeKind.INT;
-                }
-            }
-            if (op.equals("==") || op.equals("!=") || op.equals("<") || op.equals(">") || op.equals("<=") || op.equals(">=")) {
-                return TypeKind.BOOL;
-            }
-            return TypeKind.UNKNOWN;
         }
 
-        if (expr instanceof JinjaUnaryExpr u) {
-            if ("not".equals(u.getOp())) return TypeKind.BOOL;
-            TypeKind t = inferType(u.getExpr());
-            if (t == TypeKind.INT || t == TypeKind.FLOAT) return t;
-            return TypeKind.UNKNOWN;
+        if (isComparisonOperator(op)) {
+            return TypeKind.BOOL;
         }
 
-        if (expr instanceof JinjaCallExpr call) {
-            JinjaExpr callee = call.getCallee();
-            if (callee instanceof JinjaIdentifierExpr id) {
-                String fname = id.getName();
-                switch (fname) {
-                    case "len":
-                        return TypeKind.INT;
-                    case "str":
-                        return TypeKind.STR;
-                    case "int":
-                        return TypeKind.INT;
-                    case "float":
-                        return TypeKind.FLOAT;
-                    case "sum":
-                        return TypeKind.INT;
-                }
-            }
-            return TypeKind.UNKNOWN;
-        }
+        return TypeKind.UNKNOWN;
+    }
 
+    private TypeKind inferUnaryType(JinjaUnaryExpr un) {
+        if ("not".equals(un.getOp())) return TypeKind.BOOL;
+
+        TypeKind type = inferType(un.getExpr());
+        if (type == TypeKind.INT || type == TypeKind.FLOAT) {
+            return type;
+        }
+        return TypeKind.UNKNOWN;
+    }
+
+    private TypeKind inferCallType(JinjaCallExpr call) {
+        JinjaExpr callee = call.getCallee();
+        if (callee instanceof JinjaIdentifierExpr id) {
+            return switch (id.getName()) {
+                case "len", "int", "sum" -> TypeKind.INT;
+                case "str" -> TypeKind.STR;
+                case "float" -> TypeKind.FLOAT;
+                default -> TypeKind.UNKNOWN;
+            };
+        }
         return TypeKind.UNKNOWN;
     }
 
@@ -165,81 +233,225 @@ public class TemplateTypeErrorChecker {
         if (expr == null) return;
 
         if (expr instanceof JinjaBinaryExpr bin) {
-            TypeKind left = inferType(bin.getLeft());
-            TypeKind right = inferType(bin.getRight());
-            String op = bin.getOp();
-            SourceRange range = bin.getSourceRange();
-
-            // CRITICAL: Skip if both are UNKNOWN (will be checked by BridgeTypeChecker)
-            if (left == TypeKind.UNKNOWN && right == TypeKind.UNKNOWN) {
-                return;
-            }
-
-            // E102 cases - ONLY FOR TEMPLATE-LOCAL TYPES
-            if (op.equals("+")) {
-                if ((left == TypeKind.STR && right == TypeKind.INT) || (left == TypeKind.INT && right == TypeKind.STR)) {
-                    diagnostics.addDiagnostic(new Diagnostic(range, ErrorCode.E102_TYPE_ERROR, "TypeError: can only concatenate str (not \"int\") to str", "Use str() to convert int to string"));
-                    return;
-                }
-                if ((left == TypeKind.LIST && right == TypeKind.INT) || (left == TypeKind.INT && right == TypeKind.LIST)) {
-                    diagnostics.addDiagnostic(new Diagnostic(range, ErrorCode.E105_INVALID_LIST_OPERATION, "TypeError: can only concatenate list (not \"int\") to list", "Use list concatenation with another list"));
-                    return;
-                }
-            }
-
-            if (op.equals("-") || op.equals("/") || op.equals("//")) {
-                if ((left == TypeKind.STR && right == TypeKind.STR) || (left == TypeKind.STR && (right == TypeKind.INT || right == TypeKind.FLOAT)) || (right == TypeKind.STR && (left == TypeKind.INT || left == TypeKind.FLOAT))) {
-                    diagnostics.addDiagnostic(new Diagnostic(range, ErrorCode.E102_TYPE_ERROR, "TypeError: unsupported operand type(s) for " + op + ": '" + left.getDisplayName() + "' and '" + right.getDisplayName() + "'", "This operation only works with numeric types (int, float)"));
-                    return;
-                }
-            }
-
-            if (op.equals(">") || op.equals("<") || op.equals(">=") || op.equals("<=")) {
-                if ((left != TypeKind.UNKNOWN && right != TypeKind.UNKNOWN) && ((left != TypeKind.INT && left != TypeKind.FLOAT) || (right != TypeKind.INT && right != TypeKind.FLOAT) || (left != right))) {
-                    diagnostics.addDiagnostic(new Diagnostic(range, ErrorCode.E103_INCOMPATIBLE_TYPES, "TypeError: '" + op + "' not supported between instances of '" + left.getDisplayName() + "' and '" + right.getDisplayName() + "'", "Ensure both operands have compatible types"));
-                }
-            }
+            checkBinaryExpression(bin);
         } else if (expr instanceof JinjaCallExpr call) {
-            SourceRange range = call.getSourceRange();
-            JinjaExpr callee = call.getCallee();
-            TypeKind calleeType = inferType(callee);
-
-            // E104: Not callable - ONLY FOR TEMPLATE-LOCAL TYPES
-            if (calleeType != TypeKind.UNKNOWN && (calleeType == TypeKind.INT || calleeType == TypeKind.STR || calleeType == TypeKind.FLOAT || calleeType == TypeKind.LIST || calleeType == TypeKind.DICT || calleeType == TypeKind.BOOL)) {
-                String varName = extractName(callee);
-                diagnostics.addDiagnostic(new Diagnostic(range, ErrorCode.E104_NOT_CALLABLE, "TypeError: '" + calleeType.getDisplayName() + "' object is not callable", varName != null ? "Remove () after " + varName : "Remove trailing ()"));
-                return;
-            }
-
-            if (callee instanceof JinjaIdentifierExpr id) {
-                checkBuiltinFunctionArgs(id.getName(), call);
-            }
+            checkCallExpression(call);
         }
+    }
+
+    private void checkBinaryExpression(JinjaBinaryExpr bin) {
+        TypeKind left = inferType(bin.getLeft());
+        TypeKind right = inferType(bin.getRight());
+        String op = bin.getOp();
+        SourceRange range = bin.getSourceRange();
+
+        if (left == TypeKind.UNKNOWN && right == TypeKind.UNKNOWN) {
+            return; // leave for BridgeTypeChecker
+        }
+
+        if (op.equals("+")) {
+            checkAddition(left, right, range);
+        } else if (op.equals("*")) {
+            checkMultiplication(left, right, range);
+        } else if (op.equals("%")) {
+            checkModulo(left, right, range);
+        } else if (isSubtractDivideOperator(op)) {
+            checkSubtractDivide(left, right, op, range);
+        } else if (isOrderComparison(op)) {
+            checkOrderComparison(left, right, op, range);
+        }
+    }
+
+    private void checkAddition(TypeKind left, TypeKind right, SourceRange range) {
+        boolean strAndInt = (left == TypeKind.STR && right == TypeKind.INT)
+                || (left == TypeKind.INT && right == TypeKind.STR);
+        if (strAndInt) {
+            diagnostics.addDiagnostic(new Diagnostic(range, ErrorCode.E102_TYPE_ERROR,
+                    "TypeError: can only concatenate str (not \"int\") to str",
+                    "Use str() to convert int to string"));
+            return;
+        }
+
+        boolean listAndInt = (left == TypeKind.LIST && right == TypeKind.INT)
+                || (left == TypeKind.INT && right == TypeKind.LIST);
+        if (listAndInt) {
+            diagnostics.addDiagnostic(new Diagnostic(range, ErrorCode.E105_INVALID_LIST_OPERATION,
+                    "TypeError: can only concatenate list (not \"int\") to list",
+                    "Use list concatenation with another list"));
+        }
+    }
+
+    private void checkMultiplication(TypeKind left, TypeKind right, SourceRange range) {
+
+        if (isNumeric(left) && isNumeric(right)) {
+            return;
+        }
+        if (left == TypeKind.UNKNOWN || right == TypeKind.UNKNOWN) {
+            return;
+        }
+
+        diagnostics.addDiagnostic(new Diagnostic(range, ErrorCode.E102_TYPE_ERROR,
+                "TypeError: unsupported operand type(s) for *: '" +
+                        left.getDisplayName() + "' and '" + right.getDisplayName() + "'",
+                "This operation only works with numeric types (int, float)"));
+    }
+
+    private void checkModulo(TypeKind left, TypeKind right, SourceRange range) {
+        if (isNumeric(left) && isNumeric(right)) {
+            return;
+        }
+        if (left == TypeKind.UNKNOWN || right == TypeKind.UNKNOWN) {
+            return;
+        }
+
+        diagnostics.addDiagnostic(new Diagnostic(range, ErrorCode.E102_TYPE_ERROR,
+                "TypeError: unsupported operand type(s) for %: '" + left.getDisplayName() + "' and '" + right.getDisplayName() + "'",
+                "This operation only works with numeric types (int, float)"));
+    }
+
+    private void checkSubtractDivide(TypeKind left, TypeKind right, String op, SourceRange range) {
+        boolean invalid = (left == TypeKind.STR && right == TypeKind.STR)
+                || (left == TypeKind.STR && (right == TypeKind.INT || right == TypeKind.FLOAT))
+                || (right == TypeKind.STR && (left == TypeKind.INT || left == TypeKind.FLOAT));
+        if (invalid) {
+            diagnostics.addDiagnostic(new Diagnostic(range, ErrorCode.E102_TYPE_ERROR,
+                    "TypeError: unsupported operand type(s) for " + op + ": '" + left.getDisplayName() + "' and '" + right.getDisplayName() + "'",
+                    "This operation only works with numeric types (int, float)"));
+        }
+    }
+
+    private void checkOrderComparison(TypeKind left, TypeKind right, String op, SourceRange range) {
+        boolean bothNumeric = isNumeric(left) && isNumeric(right);
+        boolean bothStrings = left == TypeKind.STR && right == TypeKind.STR;
+
+        if (bothNumeric || bothStrings) {
+            return;
+        }
+
+        if (left == TypeKind.UNKNOWN || right == TypeKind.UNKNOWN) {
+            return;
+        }
+
+        diagnostics.addDiagnostic(new Diagnostic(range, ErrorCode.E103_INCOMPATIBLE_TYPES,
+                "TypeError: '" + op + "' not supported between instances of '" +
+                        left.getDisplayName() + "' and '" + right.getDisplayName() + "'",
+                "Ensure both operands have compatible types"));
+    }
+
+    private void checkCallExpression(JinjaCallExpr call) {
+        SourceRange range = call.getSourceRange();
+        JinjaExpr callee = call.getCallee();
+        TypeKind calleeType = inferType(callee);
+
+        if (calleeType != TypeKind.UNKNOWN && isNonCallableType(calleeType)) {
+            String varName = extractName(callee);
+            diagnostics.addDiagnostic(new Diagnostic(range, ErrorCode.E104_NOT_CALLABLE,
+                    "TypeError: '" + calleeType.getDisplayName() + "' object is not callable",
+                    varName != null ? "Remove () after " + varName : "Remove trailing ()"));
+            return;
+        }
+
+        if (callee instanceof JinjaIdentifierExpr id) {
+            checkBuiltinFunctionArgs(id.getName(), call);
+        }
+    }
+
+    private boolean isNonCallableType(TypeKind type) {
+        return type == TypeKind.INT || type == TypeKind.STR || type == TypeKind.FLOAT
+                || type == TypeKind.LIST || type == TypeKind.DICT || type == TypeKind.BOOL;
     }
 
     private void checkBuiltinFunctionArgs(String funcName, JinjaCallExpr call) {
         SourceRange range = call.getSourceRange();
         if (range == null) return;
-        List<JinjaExpr> args = call.getArgs();
 
-        if ("len".equals(funcName) && !args.isEmpty()) {
-            TypeKind t = inferType(args.get(0));
-            if (t != TypeKind.UNKNOWN && t != TypeKind.STR && t != TypeKind.LIST && t != TypeKind.DICT && t != TypeKind.TUPLE && t != TypeKind.SET) {
-                diagnostics.addDiagnostic(new Diagnostic(range, ErrorCode.E106_INVALID_BUILTIN_USAGE, "TypeError: object of type '" + t.getDisplayName() + "' has no len()", "len() expects a sequence or collection type (str, list, dict, tuple, set)"));
+        List<JinjaExpr> args = call.getArgs();
+        if (args.isEmpty()) return;
+
+        if ("len".equals(funcName)) {
+            checkLenArgument(args.get(0), range);
+        } else if ("sum".equals(funcName)) {
+            checkSumArgument(args.get(0), range);
+        }
+    }
+
+    private void checkLenArgument(JinjaExpr arg, SourceRange range) {
+        TypeKind type = inferType(arg);
+        if (type != TypeKind.UNKNOWN && type != TypeKind.STR && type != TypeKind.LIST
+                && type != TypeKind.DICT && type != TypeKind.TUPLE && type != TypeKind.SET) {
+            diagnostics.addDiagnostic(new Diagnostic(range, ErrorCode.E106_INVALID_BUILTIN_USAGE,
+                    "TypeError: object of type '" + type.getDisplayName() + "' has no len()",
+                    "len() expects a sequence or collection type (str, list, dict, tuple, set)"));
+        }
+    }
+
+    private void checkSumArgument(JinjaExpr arg, SourceRange range) {
+        TypeKind type = inferType(arg);
+        if (type != TypeKind.UNKNOWN && type != TypeKind.LIST) {
+            diagnostics.addDiagnostic(new Diagnostic(range, ErrorCode.E106_INVALID_BUILTIN_USAGE,
+                    "TypeError: '" + type.getDisplayName() + "' object is not iterable",
+                    "sum() expects a list of numeric values"));
+        }
+    }
+
+    private ISymbolTable enterSiblingScope() {
+        if (!(activeTable instanceof AbstractSymbolTable parent)) {
+            return activeTable;
+        }
+
+        while (siblingScopeIndex < parent.getChildren().size()) {
+            ISymbolTable child = parent.getChildren().get(siblingScopeIndex);
+            String scopeName = NameResolver.scopeName(child);
+
+            siblingScopeIndex++;
+
+            if (scopeName != null && scopeName.startsWith("block:")) {
+                continue;
             }
-        } else if ("sum".equals(funcName) && !args.isEmpty()) {
-            JinjaExpr value = args.get(0);
-            TypeKind t = inferType(value);
-            if (t != TypeKind.UNKNOWN && t != TypeKind.LIST) {
-                diagnostics.addDiagnostic(new Diagnostic(range, ErrorCode.E106_INVALID_BUILTIN_USAGE, "TypeError: '" + t.getDisplayName() + "' object is not iterable", "sum() expects a list of numeric values"));
+
+            return child;
+        }
+
+        return activeTable;
+    }
+
+    private ISymbolTable findNamedChildScope(String scopeName) {
+        if (!(activeTable instanceof AbstractSymbolTable parent)) {
+            return null;
+        }
+        for (ISymbolTable child : parent.getChildren()) {
+            if (scopeName.equals(NameResolver.scopeName(child))) {
+                return child;
             }
         }
+        return null;
+    }
+
+    private boolean isNumeric(TypeKind type) {
+        return type == TypeKind.INT || type == TypeKind.FLOAT;
+    }
+
+    private boolean isArithmeticOperator(String op) {
+        return op.equals("-") || op.equals("*") || op.equals("/") || op.equals("//") || op.equals("%");
+    }
+
+    private boolean isSubtractDivideOperator(String op) {
+        return op.equals("-") || op.equals("/") || op.equals("//");
+    }
+
+    private boolean isComparisonOperator(String op) {
+        return op.equals("==") || op.equals("!=") || op.equals("<") || op.equals(">")
+                || op.equals("<=") || op.equals(">=");
+    }
+
+    private boolean isOrderComparison(String op) {
+        return op.equals(">") || op.equals("<") || op.equals(">=") || op.equals("<=");
     }
 
     private String extractName(JinjaExpr expr) {
         if (expr instanceof JinjaIdentifierExpr id) return id.getName();
         if (expr instanceof JinjaNumberLiteralExpr num) return num.getText();
-        if (expr instanceof JinjaStringLiteralExpr) return "\"string\"";
+        if (expr instanceof JinjaStringLiteralExpr str) return str.getRawText();
         return null;
     }
 }

@@ -27,6 +27,7 @@ import AST.template.jinja.stmt.JinjaForStmt;
 import AST.template.jinja.stmt.JinjaIfStmt;
 import AST.template.jinja.stmt.JinjaIncludeStmt;
 import AST.template.jinja.stmt.JinjaStmt;
+import AST.template.jinja.stmt.JinjaSetStmt;
 import generator.GenerationPipeline;
 import generator.context.ContextData;
 import generator.context.RuntimeValue;
@@ -196,6 +197,12 @@ public final class TemplateRenderer {
 
         if (node instanceof JinjaForStmt forStmt) {
             renderFor(forStmt);
+            return;
+        }
+
+        if (node instanceof JinjaSetStmt setStmt) {
+            RuntimeValue value = JinjaExpressionEvaluator.evaluate(setStmt.getValue(), context);
+            this.context = this.context.withLocal(setStmt.getName(), value);
             return;
         }
 

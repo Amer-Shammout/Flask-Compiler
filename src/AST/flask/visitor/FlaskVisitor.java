@@ -1,7 +1,7 @@
 package AST.flask.visitor;
 
 import AST.ASTNode;
-import AST.Program;
+import AST.flask.Program;
 import AST.SourcePosition;
 import AST.SourceRange;
 import AST.flask.expr.*;
@@ -154,6 +154,15 @@ public class FlaskVisitor extends FlaskParserBaseVisitor<ASTNode> {
                 ctx.IDENTIFIER().stream().map(t -> t.getText()).toList();
 
         return new GlobalStmt(names, range(ctx));
+    }
+
+    @Override
+    public ASTNode visitNonlocal_stmt(FlaskParser.Nonlocal_stmtContext ctx) {
+
+        List<String> names =
+                ctx.IDENTIFIER().stream().map(t -> t.getText()).toList();
+
+        return new NonlocalStmt(names, range(ctx));
     }
 
     @Override

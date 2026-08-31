@@ -1,7 +1,7 @@
 package generator.context;
 
 import AST.ASTNode;
-import AST.Program;
+import AST.flask.Program;
 import AST.flask.expr.Expression;
 import AST.flask.expr.IdentifierExpr;
 import AST.flask.stmt.AssignmentStmt;

@@ -1,7 +1,7 @@
 package generator;
 
 import AST.ASTNode;
-import AST.Program;
+import AST.flask.Program;
 import AST.flask.visitor.ProgramVisitor;
 import AST.template.TemplateVisitor;
 import antlr.FlaskLexer;

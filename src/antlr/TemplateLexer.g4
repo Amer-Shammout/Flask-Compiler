@@ -272,11 +272,13 @@ JINJA_IN        : 'in';
 JINJA_BLOCK     : 'block';
 JINJA_ENDBLOCK  : 'endblock';
 JINJA_EXTENDS  : 'extends';
+JINJA_SET : 'set' ;
 
 // logical operators
 JINJA_AND       : 'and';
 JINJA_OR        : 'or';
 JINJA_NOT       : 'not';
+JINJA_STMT_ASSIGN : '=' ;
 
 // identifiers
 JINJA_STMT_ID

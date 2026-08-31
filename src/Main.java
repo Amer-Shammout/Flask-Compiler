@@ -1,6 +1,6 @@
 import AST.ASTGraphvizPrinter;
 import AST.ASTNode;
-import AST.Program;
+import AST.flask.Program;
 import AST.template.TemplateNode;
 import AST.template.TemplateVisitor;
 import AST.flask.visitor.ProgramVisitor;
@@ -201,7 +201,7 @@ public class Main {
 
         // ════════════════════════════════════════════════════════════════════════════════
         // Step 3: Run Flask Semantic Analysis Pipeline (Phase 1 only)
-        // ═════════════════════════════════��══════════════════════════════════════════════
+        // ═════════════════════════════════  ══════════════════════════════════════════════
         System.out.println("\n" + "═".repeat(70));
         System.out.println("🛡️  Step 3: Flask Semantic Analysis");
         System.out.println("═".repeat(70) + "\n");
@@ -219,7 +219,7 @@ public class Main {
     }
 
     /**
-     * ═══════════════════════════════════════════════════���════════════════════════════
+     * ═══════════════════════════════════════════════════   ════════════════════════════
      * MODE 2: Flask + Single Template with Bridge
      * ════════════════════════════════════════════════════════════════════════════════
      * <p>
@@ -336,7 +336,7 @@ public class Main {
 
             // ════════════════════════════════════════════════════════════════════════════════
             // PHASE 3: Cross-Context Bridge Analysis
-            // ════════════════════════════════════════════════════��═══════════════════════════
+            // ════════════════════════════════════════════════════  ═══════════════════════════
             System.out.println("═".repeat(70));
             System.out.println("🛡️  Phase 3: Cross-Context Bridge Analysis");
             System.out.println("═".repeat(70));

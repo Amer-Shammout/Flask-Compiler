@@ -3,6 +3,23 @@ from flask import Flask
 app = Flask(__name__)
 
 
+x = 10
+
+def f():
+    for i in range(3):
+        print(x)  #  E202
+        x = 5
+
+def g():
+    print(x)
+
+
+# y = 9
+def outer():
+    #y = 10
+    def inner():
+        nonlocal y #E203
+        y = 55
 # ======================
 # E202 Examples
 # ======================
@@ -14,6 +31,11 @@ def use_before_definition():
 def another_e202():
     y = x + 1         # E202
     x = 5
+    for _ in range(3):
+        temp = 100
+    print(temp)   # There is no E203 here because for don't create a new scope.
+
+print(temp)   # E203
 
 
 # ======================

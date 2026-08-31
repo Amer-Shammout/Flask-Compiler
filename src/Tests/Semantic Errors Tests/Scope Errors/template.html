@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+<body>
+
+{# حالة صحيحة: product معرف في for الخارجية ويستخدم داخلها #}
+{% for product in products %}
+<div>{{ product.name }}</div>
+
+{# حالة صحيحة: item معرف في for الداخلية ويستخدم داخلها #}
+{% for item in product.items %}
+<span>{{ item }}</span>
+
+{# حالة صحيحة: يمكن الوصول إلى product من الحلقة الداخلية لأن for الخارجية أب #}
+<b>{{ product.id }}</b>
+{% endfor %}
+
+{# حالة خطأ: item غير متاح هنا لأننا خارج الحلقة الداخلية #}
+<p>{{ item }}</p>          {# ❌ يجب أن يعطي E203 #}
+
+{% endfor %}
+
+{# حالة خطأ: product غير متاح هنا لأننا خارج الحلقة الخارجية #}
+<p>{{ product.id }}</p>      {# ❌ يجب أن يعطي E203 #}
+
+{# حالة صحيحة: متغير من حلقة for متداخلة داخل if (if لا ينشئ نطاقاً) #}
+{% for category in categories %}
+{% if category.active %}
+<div>{{ category.name }}</div>
+{% endif %}
+{% endfor %}
+
+{# حالة خطأ: category غير متاح خارج الحلقة #}
+<p>{{ category.name }}</p>   {# ❌ يجب أن يعطي E203 #}
+
+{# حالة block: المتغير داخل block لا يتاح خارجه #}
+{% block content %}
+{% for entry in entries %}
+<p>{{ entry.title }}</p>
+{% endfor %}
+{% endblock %}
+
+{# حالة خطأ: entry غير متاح خارج block و for #}
+<p>{{ entry.title }}</p>     {# ❌ يجب أن يعطي E203 #}
+
+</body>
+</html>

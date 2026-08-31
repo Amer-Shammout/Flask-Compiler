@@ -1,205 +1,250 @@
-# Flask Compiler using ANTLR4
-
-This project is an **educational compiler / interpreter front-end** for the **Flask web framework**, built using **ANTLR4**.  
-It focuses on parsing, building Abstract Syntax Trees (AST), and preparing the foundation for semantic analysis and symbol tables for both **Flask (Python)** code and **Template files (HTML, Internal CSS, Jinja2)**.
-
-The project is designed for **Compiler Construction / Software Engineering courses** and demonstrates real-world language processing on a modern web framework.
-
----
-
-## ✨ Project Overview
-
-The compiler is divided into **two main language domains**:
-
-1. **Flask (Python-based backend)**
-2. **Template Language (HTML + Internal CSS + Jinja2)**
-
-Each domain has:
-- Its own **Lexer**
-- Its own **Parser**
-- Its own **Parse Tree**
-- Its own **AST (Abstract Syntax Tree)**
-
----
-
-## 🧠 Architecture
-
-Source Code
-│
-▼
-ANTLR4 Lexer
-│
-ANTLR4 Parser
-│
-Parse Tree
-│
-Visitor
-│
-Abstract Syntax Tree (AST)
-│
-(Symbol Table - Planned)
-
----
-
-
----
+# Flask & Template Compiler
 
 ## 🐍 Flask (Python) Compiler Part
 
 ### ✔ Lexer & Parser
-- **FlaskLexer**
-- **FlaskParser**
 
-Generated using **ANTLR4** from a Python-like grammar tailored for Flask applications.
+**FlaskLexer** – Handles Python indentation (`INDENT`/`DEDENT`), literals, operators, keywords, decorators.
+
+**FlaskParser** – Generates a full parse tree with expressions, statements, functions, classes, imports, and control flow.
 
 ### ✔ AST Structure
 
-All AST nodes inherit from a common base class:
+All AST nodes inherit from `ASTNode`. Core abstract categories:
 
-- **ASTNode** (Abstract)
+- `Expression`
+- `Literal`
+- `Statement`
+- `Suite`
 
-Core abstract categories:
-- **Expression**
-- **Literal**
-- **Statement**
-- **Suite**
+Concrete nodes include:
 
-All of the above:
-- Are **abstract classes**
-- Extend **ASTNode**
-
-#### Example Expression Hierarchy
 - `BinaryExpr`
 - `CompareExpr`
 - `UnaryExpr`
 - `CallExpr`
-- ...
+- `AttributeExpr`
+- `IndexExpr`
+- `IfStmt`
+- `ForStmt`
+- `WhileStmt`
+- `FunctionDefStmt`
+- `ClassDefStmt`
+- `ReturnStmt`
+- etc.
 
-Each concrete expression:
-- Extends `Expression`
-- Follows a clean and extensible inheritance pattern
+**Visitors:**
 
----
-
-### ✔ Visitors
-
-Two visitors are implemented for the Flask side:
-
-- **FlaskVisitor**
-  - Traverses the ANTLR Parse Tree
-  - Builds the corresponding AST
-
-- **ProgramVisitor**
-  - Handles higher-level program structures
-  - Entry point for AST construction
+- `FlaskVisitor` – Builds AST from the parse tree.
+- `ProgramVisitor` – Entry point for program-level AST construction.
 
 ---
 
 ## 🌐 Template Compiler Part
 
 ### ✔ Lexer & Parser
-- **TemplateLexer**
-- **TemplateParser**
 
-The Template language supports:
-- HTML
-- Internal CSS
-- Jinja2 constructs (`{{ }}`, `{% %}`)
+**TemplateLexer** – Multi-mode lexer supporting HTML, CSS, and Jinja2 delimiters (`{{ }}`, `{% %}`, `{# #}`).
 
-### 🔧 AST (Planned)
-- The Template AST has **not been implemented yet**
-- Will follow a similar design to the Flask AST
-- Separate node hierarchy for:
-  - HTML elements
-  - Attributes
-  - CSS rules
-  - Jinja2 expressions and statements
+**TemplateParser** – Handles HTML elements, attributes, inline CSS, and Jinja2 constructs.
 
----
+### ✔ AST Structure
 
-## 🌳 AST Visualization (Graphviz)
+Template AST nodes inherit from `TemplateNode` and are grouped into:
 
-To visualize AST structures, the project includes:
+#### HTML Nodes
 
-### ✔ ASTGraphvizPrinter
+- `HtmlDocument`
+- `HtmlNormalElement`
+- `HtmlAttribute`
+- etc.
 
-- Generates a file called `ast.dot`
-- Represents the AST in **Graphviz DOT format**
+#### CSS Nodes
 
-### ✔ How to View the AST
-1. Run the compiler to generate `ast.dot`
-2. Copy the file contents
-3. Paste it into the following website: https://dreampuf.github.io/GraphvizOnline/?engine=dot
-4. Instantly view the AST as a visual tree
+- `CssStylesheet`
+- `CssRule`
+- `CssDeclaration`
+- etc.
 
-This is extremely useful for:
-- Debugging
-- Understanding AST structure
-- Academic demonstrations
+#### Jinja Nodes
+
+- `JinjaIfStmt`
+- `JinjaForStmt`
+- `JinjaBlockStmt`
+- `JinjaExpr`
+- etc.
 
 ---
 
-## 📦 Symbol Table 
+## 📦 Symbol Table System
 
-A **Symbol Table** was added to support:
-- Variable declarations
-- Function definitions
-- Scope handling
-- Semantic analysis
+The symbol table architecture supports lexical scoping, shadowing detection, and cross-context lookup.
 
-It will be integrated after AST construction for both:
-- Flask code 
-- Template code 
+### Core Components
 
----
+- `ISymbolTable` – Interface
+- `AbstractSymbolTable` – Common base
+- `LocalSymbolTable` – Nested scopes
+- `FlaskSymbolTable` – Root scope for Flask
+- `TemplateSymbolTable` – Root scope for templates
+- `BuiltinsScope` – Singleton for Python builtins
+- `RuntimeScope` – Singleton for runtime variables
+- `SymbolTableRepository` – Bridges Flask and Template tables
 
-## 🛠 Technologies Used
+### Reference Indices
 
-- **Java**
-- **ANTLR4**
-- **Graphviz**
-- **Flask (as target language)**
-- **HTML / CSS / Jinja2**
+- `FlaskReferenceIndex`
+- `TemplateReferenceIndex`
 
----
+These track every definition and usage with resolution status:
 
-## 🎯 Project Goals
-
-- Demonstrate real-world compiler design
-- Apply ANTLR4 to a modern framework (Flask)
-- Build clean and extensible ASTs
-- Prepare groundwork for semantic analysis
-- Provide visual AST inspection via Graphviz
+- `RESOLVED`
+- `UNDEFINED`
+- `SHADOWED`
 
 ---
 
-## 🚀 Future Work
+## 🧪 Semantic Analysis
 
-- [ ] Implement Template AST
-- [ ] Build Symbol Table
-- [ ] Add Semantic Analysis
-- [ ] Error handling & diagnostics
-- [ ] Code generation or interpretation phase
+The semantic analysis pipeline consists of three phases.
+
+### Phase 1: FlaskSemanticAnalyzer
+
+- Undefined variable/function detection
+- Scope violations (use before definition, out-of-scope)
+- Type checking in Python expressions
+
+### Phase 2: TemplateSemanticAnalyzer
+
+- Template-local scope checks
+- Type checking in Jinja expressions
+- Block structure validation
+
+### Phase 3: TemplateContextBridge
+
+- Maps `render_template()` keyword arguments to Jinja variable references
+- Detects missing Flask variables (`E004`) and undefined template variables (`E001`)
+- Performs cross-context type checking, e.g. passing `str` from Flask and using it as `int` in a template
+
+### Error Codes
+
+| Code | Category |
+|---|---|
+| `E0xx` | Undefined |
+| `E1xx` | Type |
+| `E2xx` | Scope |
+| `W1xx` | Warnings |
+| `I0xx` | Info |
+| `H0xx` | Hints |
 
 ---
 
-## 📚 Academic Context
+## 🛠 Code Generation
 
-This project is suitable for:
-- Compiler Design courses
-- Programming Languages courses
-- Software Engineering projects
-- Advanced ANTLR4 practice
+Produces self-contained HTML files from Flask data and Jinja templates.
+
+### Key Classes
+
+- `RuntimeValue` – Dynamic value representation (`INT`, `STRING`, `LIST`, `OBJECT`, etc.)
+- `ContextData` – Variables passed from Flask to template
+- `FlaskDataExtractor` – Extracts global assignments from Flask AST
+- `PythonContextEvaluator` – Simulates Flask route logic to build contexts
+- `JinjaExpressionEvaluator` – Evaluates Jinja expressions, filters, and operators
+- `TemplateRenderer` – Walks template AST and emits HTML with proper scoping, includes, extends, and CSS inlining
+- `GenerationPipeline` – Orchestrates the entire generation process
+- `GenerationServer` – Interactive HTTP server (Mode 5) that re-evaluates ASTs on each request, supporting add/edit/delete of products
+
+### Output
+
+The generation process produces:
+
+- Generated HTML files in `output/`
+- AST JSON exports in `compiler_output/`
+- Semantic reports and generation logs
+
+---
+
+## 🌳 AST Visualization
+
+### ASTGraphvizPrinter
+
+Generates `.dot` files for Graphviz.
+
+### Swing JTree Viewer
+
+Interactive parse tree viewer with search.
+
+### AstJsonExporter
+
+Exports AST as JSON for documentation and debugging.
+
+---
+
+## 🖥 Interactive Server
+
+A lightweight HTTP server implemented in pure Java simulates Flask runtime behavior.
+
+It keeps products in memory, and on each request it re-renders the pre-parsed Jinja ASTs with current data.
+
+### Routes
+
+- `/products`
+- `/add`
+- `/edit/<id>`
+- `/delete/<id>`
+
+This demonstrates that Java can perform the same dynamic rendering as Flask without actually running Flask.
+
+---
+
+## 👥 Team
+
+| Member | Responsibility |
+|---|---|
+| **Amer Shammout** | Bridge & Context, Missing Flask Variable Checker |
+| **George Abboud** | Undefined & Scope Errors |
+| **Sedra Al Halabe** | Type Errors |
+| **Laila Almasry** | Data Layer + Template Engine |
+| **Ghalia Sbei** | Generation Pipeline, Output, Server |
+
+All members collaborated on earlier stages, including Lexers, Parsers, ASTs, and Symbol Tables.
+
+---
+
+## 🚀 Usage
+
+Run the main class `Main` and choose an execution mode:
+
+1. **Flask only** – Semantic analysis without templates
+2. **Flask + single template** – With bridge
+3. **Flask + all templates** – With bridge
+4. **Generate static HTML**
+5. **Start interactive server**
+
+---
+
+## 🔮 Future Work
+
+- Support more complex Python/Jinja features (macros, imports, advanced filters)
+- Enhance error recovery and suggestion accuracy
+- Implement dataflow analysis
+- Integrate with Language Server Protocol (LSP) for IDE support
 
 ---
 
 ## 📄 License
 
-This project is intended for **educational purposes**.  
-You are free to use, modify, and extend it for learning and academic work.
+This project is for educational purposes. You are free to use, modify, and extend it for learning and academic work.
 
----
+### Authors
 
-**Author:** Amer Shammout  
-**Framework:** Flask  
-**Tooling:** ANTLR4
+- Amer Shammout
+- Laila Almasry
+- Sedra Al Halabe
+- Ghalia Sbei
+- George Abboud
+
+### Project Information
+
+- **Framework:** Flask
+- **Tooling:** ANTLR4, Java
