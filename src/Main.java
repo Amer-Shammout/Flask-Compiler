@@ -112,11 +112,150 @@ public class Main {
     /**
      * MODE 5: Interactive server — Java listens for Add/Delete/Edit requests and
      * regenerates the Jinja AST against the updated in-memory product data on every request.
+     * <p>
+     * ✅ VALIDATION: Before starting the server, perform complete semantic analysis.
+     * If any [E...] errors found → STOP and don't start server.
      */
     private static void runServer(String[] args) throws Exception {
         Path flaskPath = resolvePath(args, 1, DEFAULT_FLASK_SOURCE);
         Path templateDir = resolvePath(args, 2, DEFAULT_TEMPLATE_DIRECTORY);
         int port = 5001;
+
+        // ════════════════════════════════════════════════════════════════════════════════
+        // Semantic Validation (BEFORE starting server)
+        // ════════════════════════════════════════════════════════════════════════════════
+        System.out.println("\n╔════════════════════════════════════════════════════════════╗");
+        System.out.println("║       Pre-validation: Semantic Analysis (Mode 5)          ║");
+        System.out.println("╚════════════════════════════════════════════════════════════╝\n");
+
+        // Step 1: Parse Flask
+        Program flaskProgram = GenerationPipeline.parseFlaskHeadless(flaskPath);
+        System.out.println("✓ Flask parsed successfully");
+
+        // Step 2: Build Flask Symbol Table
+        FlaskSymbolTable flaskTable = new FlaskSymbolTable("flask-global", flaskPath.toString());
+        SymbolTableRepository repository = new SymbolTableRepository(flaskTable, new TemplateSymbolTable("template-global", null));
+        FlaskSymbolTableBuilder flaskBuilder = new FlaskSymbolTableBuilder(repository);
+        flaskBuilder.build(flaskProgram);
+        System.out.println("✓ Flask symbol table built\n");
+
+        // Step 3: Run Flask Semantic Analysis
+        DiagnosticCollector flaskDiagnostics = new DiagnosticCollector();
+        SemanticAnalysisPipeline flaskPipeline = new SemanticAnalysisPipeline(repository, flaskDiagnostics, flaskBuilder);
+        flaskPipeline.analyzeFlaskOnly(flaskProgram);
+        System.out.println("📋 Flask analysis complete\n");
+
+        // Step 4: Check for Flask errors
+        if (flaskDiagnostics.getErrorCount() > 0) {
+            System.out.println("❌ SEMANTIC ERRORS IN FLASK:\n");
+            flaskDiagnostics.reportAll();
+            System.out.println("\n❌ Server startup BLOCKED. " + "Fix Flask errors before running Mode 5.\n");
+            return;
+        }
+
+        // Step 5: Analyze all Templates
+        System.out.println("═".repeat(70));
+        System.out.println("Checking Templates...\n");
+        System.out.println("═".repeat(70) + "\n");
+
+        List<DiagnosticCollector> templateDiagnosticsList = new ArrayList<>();
+
+        List<String> templateNamesList = new ArrayList<>();
+
+        boolean hasTemplateErrors = false;
+
+        try (var stream = Files.list(templateDir)) {
+
+            List<Path> templateFiles = stream.filter(p -> p.getFileName().toString().toLowerCase().endsWith(".html")).sorted().toList();
+
+            for (Path templatePath : templateFiles) {
+
+                String templateName = templatePath.getFileName().toString();
+
+                System.out.println("→ Analyzing: " + templateName);
+
+                // Parse template
+                String source = Files.readString(templatePath);
+
+                ASTNode templateRoot = GenerationPipeline.parseTemplateHeadless(source);
+
+                if (!(templateRoot instanceof TemplateNode templateNode)) {
+                    System.out.println("  ⚠ Template parse failed: not a TemplateNode\n");
+                    continue;
+                }
+
+                // Build template symbol table
+                TemplateSymbolTable templateTable = new TemplateSymbolTable("template-global", templateName);
+
+                SymbolTableRepository templateRepo = new SymbolTableRepository(flaskTable, templateTable);
+
+                TemplateSymbolTableBuilder templateBuilder = new TemplateSymbolTableBuilder(templateRepo);
+
+                templateBuilder.buildTemplate(templateNode);
+
+                // Semantic analysis
+                DiagnosticCollector templateDiag = new DiagnosticCollector();
+
+                SemanticAnalysisPipeline templatePipeline = new SemanticAnalysisPipeline(templateRepo, templateDiag);
+
+                templatePipeline.analyzeTemplateOnly(templateNode, templateBuilder.getReferenceIndex());
+
+                templatePipeline.bridgeTemplateWithFlask(flaskProgram, templateNode, templateBuilder.getReferenceIndex());
+
+                templateDiagnosticsList.add(templateDiag);
+                templateNamesList.add(templateName);
+
+                // Check for errors
+                if (templateDiag.getErrorCount() > 0) {
+
+                    System.out.println("  ❌ " + templateName + " has " + templateDiag.getErrorCount() + " error(s)");
+
+                    hasTemplateErrors = true;
+
+                } else {
+
+                    System.out.println("  ✓ " + templateName + " OK\n");
+                }
+            }
+        }
+
+        // Step 6: Report all template diagnostics if any errors found
+        if (hasTemplateErrors) {
+
+            System.out.println("\n❌ SEMANTIC ERRORS IN TEMPLATES:\n");
+
+            System.out.println("═".repeat(70) + "\n");
+
+            for (int i = 0; i < templateDiagnosticsList.size(); i++) {
+
+                if (templateDiagnosticsList.get(i).getErrorCount() > 0) {
+
+                    System.out.println("📄 " + templateNamesList.get(i) + ":");
+
+                    System.out.println("─".repeat(70));
+
+                    templateDiagnosticsList.get(i).reportAll();
+
+                    System.out.println();
+                }
+            }
+
+            System.out.println("❌ Server startup BLOCKED. " + "Fix template errors before running Mode 5.\n");
+
+            return;
+        }
+
+        // ════════════════════════════════════════════════════════════════════════════════
+        // All validations passed → start server
+        // ════════════════════════════════════════════════════════════════════════════════
+        System.out.println("\n" + "═".repeat(70));
+
+        System.out.println("✅ All semantic validations PASSED");
+
+        System.out.println("═".repeat(70));
+
+        System.out.println("\nStarting Interactive Server...\n");
+
         new generator.GenerationServer(flaskPath, templateDir, port).start();
     }
 
@@ -136,13 +275,10 @@ public class Main {
         System.out.println("Templates: " + templateDir);
         System.out.println("Output:    " + outputDir);
 
-        GenerationPipeline.Result result = new GenerationPipeline(
-                flaskPath, templateDir, outputDir, compilerOutputDir
-        ).run();
+        GenerationPipeline.Result result = new GenerationPipeline(flaskPath, templateDir, outputDir, compilerOutputDir).run();
 
         System.out.println("\nGenerated files:");
-        result.generatedHtml().forEach((name, path) ->
-                System.out.println("  ✓ " + name + " → " + path));
+        result.generatedHtml().forEach((name, path) -> System.out.println("  ✓ " + name + " → " + path));
         System.out.println("\nAlso copied support files into output/ (e.g. app.py).");
         System.out.println("See compiler_output/generation_log.txt for details.");
     }
