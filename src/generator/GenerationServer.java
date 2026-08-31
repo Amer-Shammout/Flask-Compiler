@@ -208,7 +208,7 @@ public final class GenerationServer {
                 }
             }
         }
-        redirect(exchange, "/products/details?id=" + id);
+        redirect(exchange, "/products");
     }
 
     // ── Static files ─────────────────────────────────────────────────────
