@@ -24,80 +24,76 @@ public final class JinjaExpressionEvaluator {
     }
 
     public static RuntimeValue evaluate(JinjaExpr expr, ContextData context) {
-        if (expr == null) {
-            return RuntimeValue.none();
-        }
-
-        if (expr instanceof JinjaIdentifierExpr id) {
-            String name = id.getName();
-            if ("true".equalsIgnoreCase(name)) return RuntimeValue.ofBool(true);
-            if ("false".equalsIgnoreCase(name)) return RuntimeValue.ofBool(false);
-            if ("none".equalsIgnoreCase(name)) return RuntimeValue.none();
-            return context.get(name);
-        }
-
-        if (expr instanceof JinjaAttrExpr attr) {
-            RuntimeValue target = evaluate(attr.getTarget(), context);
-            return target.getAttr(attr.getAttribute());
-        }
-
-        if (expr instanceof JinjaCallExpr call) {
-            if (call.getCallee() instanceof JinjaIdentifierExpr id) {
-                List<RuntimeValue> args = call.getArgs().stream().map(arg -> evaluate(arg, context)).toList();
-                return switch (id.getName()) {
-                    case "len" -> {
-                        if (args.isEmpty()) {
-                            throw new IllegalArgumentException("len() requires 1 argument");
-                        }
-                        yield RuntimeValue.ofInt(lengthOf(args.get(0)));
-                    }
-                    case "int" -> {
-                        if (args.isEmpty()) {
-                            throw new IllegalArgumentException("int() requires 1 argument");
-                        }
-                        yield RuntimeValue.ofInt(args.get(0).asInt());
-                    }
-                    case "float" -> {
-                        if (args.isEmpty()) {
-                            throw new IllegalArgumentException("float() requires 1 argument");
-                        }
-                        yield RuntimeValue.ofFloat(args.get(0).asFloat());
-                    }
-                    case "str" -> {
-                        if (args.isEmpty()) {
-                            throw new IllegalArgumentException("str() requires 1 argument");
-                        }
-                        yield RuntimeValue.ofString(args.get(0).toString());
-                    }
-                    default -> throw new UnsupportedOperationException("Unsupported call: " + id.getName());
-                };
+        switch (expr) {
+            case null -> {
+                return RuntimeValue.none();
             }
-
-            throw new UnsupportedOperationException("Unsupported call target: " + call.getCallee().getClass().getSimpleName());
-        }
-
-        if (expr instanceof JinjaStringLiteralExpr str) {
-            return RuntimeValue.ofString(stripQuotes(str.getRawText()));
-        }
-
-        if (expr instanceof JinjaNumberLiteralExpr num) {
-            return parseNumber(num.getText());
-        }
-
-        if (expr instanceof JinjaUnaryExpr unary) {
-            RuntimeValue inner = evaluate(unary.getExpr(), context);
-            if ("not".equalsIgnoreCase(unary.getOp())) {
-                return RuntimeValue.ofBool(!inner.isTruthy());
+            case JinjaIdentifierExpr id -> {
+                String name = id.getName();
+                if ("true".equalsIgnoreCase(name)) return RuntimeValue.ofBool(true);
+                if ("false".equalsIgnoreCase(name)) return RuntimeValue.ofBool(false);
+                if ("none".equalsIgnoreCase(name)) return RuntimeValue.none();
+                return context.get(name);
             }
-            throw new UnsupportedOperationException("Unsupported unary op: " + unary.getOp());
-        }
+            case JinjaAttrExpr attr -> {
+                RuntimeValue target = evaluate(attr.getTarget(), context);
+                return target.getAttr(attr.getAttribute());
+            }
+            case JinjaCallExpr call -> {
+                if (call.getCallee() instanceof JinjaIdentifierExpr id) {
+                    List<RuntimeValue> args = call.getArgs().stream().map(arg -> evaluate(arg, context)).toList();
+                    return switch (id.getName()) {
+                        case "len" -> {
+                            if (args.isEmpty()) {
+                                throw new IllegalArgumentException("len() requires 1 argument");
+                            }
+                            yield RuntimeValue.ofInt(lengthOf(args.get(0)));
+                        }
+                        case "int" -> {
+                            if (args.isEmpty()) {
+                                throw new IllegalArgumentException("int() requires 1 argument");
+                            }
+                            yield RuntimeValue.ofInt(args.get(0).asInt());
+                        }
+                        case "float" -> {
+                            if (args.isEmpty()) {
+                                throw new IllegalArgumentException("float() requires 1 argument");
+                            }
+                            yield RuntimeValue.ofFloat(args.get(0).asFloat());
+                        }
+                        case "str" -> {
+                            if (args.isEmpty()) {
+                                throw new IllegalArgumentException("str() requires 1 argument");
+                            }
+                            yield RuntimeValue.ofString(args.get(0).toString());
+                        }
+                        default -> throw new UnsupportedOperationException("Unsupported call: " + id.getName());
+                    };
+                }
 
-        if (expr instanceof JinjaBinaryExpr binary) {
-            return evaluateBinary(binary, context);
-        }
-
-        if (expr instanceof JinjaFilterExpr filter) {
-            return applyFilter(filter, context);
+                throw new UnsupportedOperationException("Unsupported call target: " + call.getCallee().getClass().getSimpleName());
+            }
+            case JinjaStringLiteralExpr str -> {
+                return RuntimeValue.ofString(stripQuotes(str.getRawText()));
+            }
+            case JinjaNumberLiteralExpr num -> {
+                return parseNumber(num.getText());
+            }
+            case JinjaUnaryExpr unary -> {
+                RuntimeValue inner = evaluate(unary.getExpr(), context);
+                if ("not".equalsIgnoreCase(unary.getOp())) {
+                    return RuntimeValue.ofBool(!inner.isTruthy());
+                }
+                throw new UnsupportedOperationException("Unsupported unary op: " + unary.getOp());
+            }
+            case JinjaBinaryExpr binary -> {
+                return evaluateBinary(binary, context);
+            }
+            case JinjaFilterExpr filter -> {
+                return applyFilter(filter, context);
+            }
+            default -> {
+            }
         }
 
         throw new UnsupportedOperationException(
